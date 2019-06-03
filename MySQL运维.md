@@ -48,7 +48,7 @@ yum安装		二进制rpm包		这个包里面有一个规则文件，这个文件�
 
 `yum	makecache`				更新仓库		
 
-`yum list |  grep mysql-community`-server			用grep过滤查看mysql-community-server安装源，结果是`mysql-community-server.x86_64` 
+``yum list |  grep mysql-community-server`			用grep过滤查看mysql-community-server安装源，结果是`mysql-community-server.x86_64` 
 
 `yum -y install mysql-community-server.x86_64` 		执行安装
 

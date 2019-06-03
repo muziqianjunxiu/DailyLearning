@@ -6,7 +6,9 @@
 
 `vim /etc/yum.repos.d/CentOS-Base.repo` 
 
-`:%s/$releasever/7/g`								修改Centos-7.repo文件将所有$releasever替换为7
+​		`:%s/$releasever/7/g`								修改Centos-7.repo文件将所有$releasever替换为7
+
+​		`：wq！`
 
 第三步：
 
