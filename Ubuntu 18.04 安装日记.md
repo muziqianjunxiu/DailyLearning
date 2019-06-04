@@ -44,7 +44,7 @@ deb-src http://mirrors.aliyun.com/ubuntu/ bionic-backports main restricted unive
 
 ​									**vi 换行：**命令模式下，移动方向键到需要换行的位置，按`‘a’`，再按`‘enter`’键，再按`‘ESC’`键，再移动方向键到下一个需要换行的地方，重复操作。
 
-​									按`‘ESC'`键，进入命令行模式，按`“：wq ”`	保存退出
+​									按`‘ESC'`键，进入命令行模式，按`“：wq！ ”`	保存退出
 
 ​						`sudo 	apt-get		update`		更新源文件
 
@@ -552,7 +552,7 @@ https://www.linuxidc.com/Linux/2018-11/155408.htm			如何在Ubuntu 18.04中安�
 
 ## 使用Xshell连接不上解决
 
-ip没问题，可以ping外网，可以pingNAT模式下宿主机和其他虚拟机，但是就是不能XShell远程登录。试了防火墙以及端口，都没用。最后发现，问题出在ubuntu18.04默认未安装ssh服务，所以使用XShell连接不上。而RHEL则没有这个问题，ip配置好了后XShell瞬间连上。
+ip没问题，可以ping外网，可以ping  NAT模式下宿主机和其他虚拟机，但是就是不能XShell远程登录。试了防火墙以及端口，都没用。最后发现，问题出在ubuntu18.04默认未安装ssh服务，所以使用XShell连接不上。而RHEL则没有这个问题，ip配置好了后XShell瞬间连上。
 
 `sudo	apt-get	install	openssh-server`			安装ssh服务
 

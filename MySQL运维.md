@@ -74,11 +74,11 @@ yum安装		二进制rpm包		这个包里面有一个规则文件，这个文件�
 
 `mysql	-uroot 	-p'OIDSHO23OI'`		初次登陆，命令提示符变成：`mysql>`
 
-​		`ALTER	USER	root@'localhost'	IDENTIFIED	BY	'woshimima123!'`			第一次要修改密码
+​		`ALTER	USER	root@'localhost'	IDENTIFIED	BY	'mimaSHI123!'；`			第一次要修改密码
 
 **另一种改密方式**：不用进mysql
 
-`mysqladmin  -uroot   -p'OIDSHO23OI'  password  "woshimima123!"`
+`mysqladmin  -uroot   -p'OIDSHO23OI'  password  "mimaSHI123!"`
 
 ## 2.	二进制预编译			Generic			
 
@@ -327,6 +327,8 @@ root用户：
 `help  drop   /  help  drop database`		可以查看drop命令/drop database命令的帮助
 
 `show tables;`							查看库中表	
+
+`desc  mytable`							查看mytable这个表结构
 
 # MySQL数据类型
 
