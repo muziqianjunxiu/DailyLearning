@@ -2,15 +2,7 @@
 
 安装部署		**备份恢复		主备复制		HA架构		分布式数据库**		压力测试		性能优化		**自动化运维**
 
-# SQL语言（结构化查询语言）
 
-​		DDL语句	数据库定义语言：数据库、表、视图、索引、存储过程、函数、CREATE	DROP	ALERT		//开发人员
-
-​		DML语句	数据库操纵语言：插入数据INSERT、删除数据DELETE、更新数据UPDATE		//开发人员
-
-​		DQL语句	数据库查询语言：查询数据SELECT
-
-​		DCL语句	数据库控制语言：例如控制用户访问权限GRANT、REVOKE
 
 # CentOS下安装
 
@@ -48,17 +40,17 @@ yum安装		二进制rpm包		这个包里面有一个规则文件，这个文件�
 
 `yum	makecache`				更新仓库		
 
-``yum list |  grep mysql-community-server`			用grep过滤查看mysql-community-server安装源，结果是`mysql-community-server.x86_64` 
+`yum list |  grep mysql-community-server`			用grep过滤查看mysql-community-server安装源，结果是`mysql-community-server.x86_64` 
 
 `yum -y install mysql-community-server.x86_64` 		执行安装
 
 `ls	 /var/lib/mysql`		数据库文件位置（rpm包安装方式，`mysql`的各个文件夹位置是固定的），此时无文件
 
-`systemctl	start 	mysqld`	第一次启动`mysql`，会初始化，生成数据库文件，再查看`/var/lib/mysql`
+`systemctl	start 	mysqld`	**第一次启动**`mysql`，会初始化，生成数据库文件，再查看`/var/lib/mysql`
 
 `ls	/var/lib/mysql`		再查看，此时生成了数据库文件
 
-`systemctl	enable  mysqld`		设置`mysql`为开机自启
+`systemctl	enable  mysqld`		**设置`mysql`为开机自启**
 
 ###`sed	-ri	'/^SELINUX=/cSELINUX=disabled'	/etc/selinux/config`		针对云服务器的配置，关闭selinux，seLinux 主要作用就是最大限度地减小系统中服务进程可访问的资源（最小权限原则）###
 
@@ -188,11 +180,25 @@ ps aux |grep mysqld
 
 多一个编译的过程，初始化过程和上面都是一样的。
 
+# MySQL密码
 
+## 查看初始密码  —修改密码
 
-# 忘记Mysql密码
+`mysql	-uroot`		`mysql5.7`以后，第一次进`mysql`，没有密码进不去了，此时需要查看root临时密码：`在/var/log/mysqld.log`中
 
-## MySQL5.7.5  and   earlier
+`grep 'password' /var/log/mysqld.log`			查看root临时密码 ，如`'OIDSHO23OI'`
+
+`mysql	-uroot 	-p'OIDSHO23OI'`		初次登陆，命令提示符变成：`mysql>`
+
+​		`ALTER	USER	root@'localhost'	IDENTIFIED	BY	'mimaSHI123!'；`			第一次要修改密码
+
+**另一种改密方式**：不用进mysql
+
+`mysqladmin  -uroot   -p'OIDSHO23OI'  password  "mimaSHI123!"`
+
+## 忘记Mysql密码
+
+### MySQL5.7.5  and   earlier
 
 root用户：
 
@@ -220,7 +226,7 @@ root用户：
 
 `service mysqld restart`
 
-## MySQL5.7.6 and later
+MySQL5.7.6 and later
 
 root用户：
 
@@ -252,7 +258,7 @@ root用户：
 
 `mysql	-uroot  -p"mimashi123!"`
 
-## MySQL8
+### MySQL8
 
 root用户：
 
@@ -288,75 +294,68 @@ root用户：
 
 `mysql -uroot -p'mimashi123!'`			此时用新密码登陆		
 
-## 区别
+### 区别
 
 区别就在于5.7.6之前的版本字段名是password，且可以使用简单密码。而5.7.6之后的字段名是authentication_string，且不可以使用简单密码。`mysql8`中又废弃了password（）方法。
 
-# 系统数据库
+# 启动关闭MySQL服务
 
-## information_schema
+## 启动
 
-​		虚拟库，主要存储了系统中一些数据库对选哪个的信息，如用户表信息，列信息，权限信息，字符信息等
+`systemctl  start mysqld`				启动
 
-## performance_schema
+`systemctl  restart  mysqld`			重启
 
-​		主要存储数据库服务器的性能参数，性能调优
+`systemctl	enable  mysqld`		设置`mysql`为开机自启
 
-## **mysql**
+## 关闭
 
-​		授权库，主要存储系统用户的权限信息
+`/usr/bin/mysqladmin -uroot -p'mimashi123' shutdown`		立即关闭
 
-## sys
+`/usr/bin/mysqladmin -uroot -p shutdown`		之后输入密码
 
-​		主要存储数据库服务器的性能参数
+## 查看状态
 
-## 创建自己的数据库
+`ps  -ef |grep mysqld`
 
-命令不区分大小写，数据库名字区分大小写
+`ps aux  | grep mysqld`
 
-`select database( )；`			查看当前所处库，括号内无参数
+`pidof  mysqld`   
 
-`create database mydb；`		创建数据库mydb
+`service mysqld status`  
 
-`show databases；`						查看所有库
+`chkconfig --list mysql`   **查看MySQL是否启动**
 
-`use  mydb`								使用mydb数据库
+# 用户设置
 
-`drop  database  mydb；`			删除数据库mydb
+## 添加用户
 
-`help  drop   /  help  drop database`		可以查看drop命令/drop database命令的帮助
+1.在mysql库中的usr表中添加：
 
-`show tables;`							查看库中表	
+`INSERT INTO user (host,user,password,select_priv,insert_priv) VALUE('localhost','muzi',PASSWORD('mimashi123'),'Y','Y');`
 
-`desc  mytable`							查看mytable这个表结构
+`FLUSH PRIVILEGES;`			重新载入授权表
 
-# MySQL数据类型
+注意：5.7之后，`user`表中的`password`字段已经改成了`authentication_string`。8.0之后`password（）`加密函数已经移除，使用`MD5()`代替
 
-## 数值类型
+在创建用户时，为用户指定权限，在对应的权限列中，在插入语句中设置为 'Y' 即可，用户权限列表如下：
 
-整数类型	TINYINT  SMALLINT	MEDIUMINT	INT	BIGINT
+- `Select_priv`
+- `Insert_priv`
+- `Update_priv`
+- `Delete_priv`
+- `Create_priv`
+- `Drop_priv`
+- `Reload_priv`
+- `Shutdown_priv`
+- `Process_priv`
+- `File_priv`
+- `Grant_priv`
+- `References_priv`
+- `Index_priv`
+- `Alter_priv`
 
-浮点型	FLOAT	DOUBLE
+2.在usr表中通过SQL的 GRANT  命令
 
-定点数类型	DEC
-
-位类型	BIT
-
-## 字符串类型
-
-CHAR类型	CHAR	VARCHAR
-
-TEXT系列	TINYTEXT	TEXT	MEDIUNTEXT	LONGTEXT
-
-BLOB系列	TINYBLOB	BLOB	MEDIUMBLOB	LONGBLOB
-
-BINARY系列	BINARY	VARBINARY
-
-枚举系列	ENUM
-
-集合类型	SET		
-
-## 时间和日期类型
-
-DATA	TIME	DATATIME	TIMESTAMP	YEAR
+`GRANT SELECT,INSERT,UPDATE,DELETE,CREATE,DROP ON  db_muzi .*  TO 'muzi'@'localhost'  IDENTIFIED BY 'mimashi1!';`  给数据库`db_muzi`添加用户`muzi`，密码是‘`mimashi1！`’
 
