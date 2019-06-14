@@ -359,3 +359,4 @@ root用户：
 
 `GRANT SELECT,INSERT,UPDATE,DELETE,CREATE,DROP ON  db_muzi .*  TO 'muzi'@'localhost'  IDENTIFIED BY 'mimashi1!';`  给数据库`db_muzi`添加用户`muzi`，密码是‘`mimashi1！`’
 
+  
