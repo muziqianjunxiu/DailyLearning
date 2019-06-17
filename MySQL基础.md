@@ -328,7 +328,7 @@ concat( )函数用于连接字符串
 
 `select name ,salary from t1 where salary not in (1000,2000,3000);`
 
-### 关键字 LIKE  模糊查询
+### 关键字 LIKE  模糊查询  及通配符
 
 通配符  %   任意多个字符
 
@@ -392,7 +392,7 @@ group by  和 集合函数一起使用
 
 `select  id ,sum(salary)  from t1  group by id;`
 
- 使用正则查询
+##  使用正则查询
 
 `select  * from t1  where  name REGEXP  '^ali';`
 
@@ -848,29 +848,33 @@ drop trigger  触发器名称
 
 `\d ;`
 
-# MySQL存储过程与函数
+-----------------
 
-## 概述
+# MySQL存储过程  与函数
+
+------------
+
+## 存储过程概述
 
 存储过程和函数是实现经过编译并存储在数据库中的一段SQL语句的集合。存储过程与函数的区别：
 
-​		函数必须有返回值，而存储过程没有。
+​		函数必须有返回值，通过return语句返回。而存储过程是通过定义参数类型将需要的值传出。
 
 ​		存储过程的参数可以使IN，OUT，INOUT类型 ，而函数的参数只能是IN。
 
 优点：
 
-​			存储过程只在创建时进行编译；而SQL语句每执行一次就编译一次，所以使用存储过程可以提高数据库执行速度。
+​			存储过程只在创建时进行编译；而SQL语句每执行一次就编译一次，所以使用存储过程可以提高数据库执行速度。简化复杂操作，结合事务一起封装。复用性好。安全性高，可指定存储过程的使用权。
 
-​			简化复杂操作，结合事务一起封装。
+函数优点：
 
-​			复用性好。
-
-​			安全性高，可指定存储过程的使用权。
+​			函数调用方式简单，可以和其他语句结合，灵活使用。而存储过程的调用相对来说是固定化的，给存储过程一些数据，进行加工。从某种程度上看，存储过程和函数是相似的。
 
 说明：并发量少的情况下，很少使用存储过程。并发量高的情况下，为了提高效率，用存储过程较多。
 
-## 创建
+-------
+
+## 存储过程创建
 
 创建存储过程语法：
 
@@ -880,18 +884,428 @@ drop trigger  触发器名称
 
 ​		IN 	输入参数		OUT		输出参数		INOUT	输入输出参数
 
-`delimiter  $$`
+-------------------
 
-`create  procedure  过程名(形式参数列表)`
+```mysql
+delimiter  $$
+create  procedure  过程名(形式参数列表)
+BEGIN
+	SQL语句
+END$$
+delimiter  ;
+```
 
-`BEGIN`
+## 存储过程调用
 
-​			`SQL语句`
+​		`	call  存储过程名（实参列表）`
 
-`END$$`
+----
 
-`delimiter  ;`
+## 存储过程参数类型
 
-## 调用
+1. NONE
 
-`call  存储过程名（实参列表）`
+```mysql
+\d $$
+create procedure  p1()
+begin
+	select count(*) from mysql.user;   //统计user用户数
+end$$
+\d ;
+call p1();  //调用
+```
+
+```mysql
+create table school.t1(id int ,cc varchar(100));
+delimiter $$
+create procedure autoinsert1()
+BEGIN
+declare i int default 1;
+while (i<=20000)do
+	insert into school.t1  values(i,md5(i));
+	set i=i+1;
+end while
+END$$
+delimiter ;
+call autoinsert1();   //调用
+```
+
+2.IN    只能传入参数
+
+```mysql
+create table school.t2(id int ,cc varchar(100));
+delimiter $$
+create procedure autoinsert2(IN a int)	//传参a，参数类型为int
+BEGIN
+	declare i int default 1;
+	while (i<=a)do
+		insert into school.t2  values(i,md5(i));
+		set i=i+1;
+	end while
+END$$
+delimiter ;
+call autoinsert2(20000);   //调用
+```
+
+或者使用变量传参进行调用：
+
+```mysql
+set  @num=20;			//定义mysql中的变量，@num为局部变量num，@@global.num为全局变量num，将20赋值给了num。
+select  @num;			//查看num的值,相当于echo num
+call  autoinsert2(@num);  //将变量作为参数a传进去
+```
+
+3.OUT    只能传出参数
+
+```mysql
+delimiter $$
+create procedure p3(OUT a int)
+begin
+	select count(*) into a from mysql.user;
+end$$
+delimiter ;
+call p3(@num);
+select @num;
+```
+
+4.IN 和 OUT 
+
+eg1.统计指定部门的员工数
+
+```mysql
+\d  $$
+create procedure count_num(IN p1 varchar(50),OUT p2 int)
+BEGIN
+	select count(*) into p2 from company.employee  where post =p1;
+END$$
+\d ;
+call count_num('hr',@num);
+select @num;	//查看结果
+```
+
+eg2.统计指定部门工资超过5000的总人数
+
+```mysql
+create procedure count_num(IN p1 varchar(50),IN p2 float(10,2),OUT p3 int)
+BEGIN
+	select count(*) into p3 from company.employee where post=p1 and salary>=p2;
+END$$
+\d ;
+call count_num('hr',5000,@num);
+select @num;   //查看结果
+```
+
+5.INOUT
+
+```mysql
+\d $$
+create procedure proce_param_inout(INOUT p1 int)
+BEGIN
+	if (p1 is not null)then
+		set p1=p1+1;
+	else
+		select 100 into p1;		//或  set p1 =100;
+	end if;
+END$$
+\d ;
+call proce_param_inout(@h);
+select @h;
+```
+
+## 函数创建
+
+create function 函数名(参数列表)  returns  返回值类型   [特性..] 函数体
+
+函数的参数形式：参数名 ，类型
+
+```mysql
+delimiter $$
+create function 函数名（参数列表）  returns  返回值类型
+BEGIN
+	有效的sql语句
+END$$
+delimiter  ；
+
+```
+
+## 函数调用
+
+select  函数名（实参列表）
+
+-----
+
+```mysql
+create function my_hello(my_str char(20))  
+returns  char(50)
+	return  CONCAT('hello,',my_str,'!');
+
+select my_hello('muzi');   //调用，结果为：hello，muzi！
+```
+
+```mysql
+\d $$
+create function name_from_emp(x int)
+returns varchar(50)
+BEGIN
+	return (select name from employee where id=x);
+END$$
+\d ;
+select name_from_emp(5);  //获得id为5的员工姓名
+select * from employee where employee.name=	name_from_emp(5);  //获得id为5的员工的所有信息
+```
+
+## 存储过程与函数的维护
+
+```mysql
+show  create procedure p1\G;
+show create function p2\G;
+show {procedure |function }  status {like 'pattern'}
+drop { procedure |function } {if exist} sp_name
+```
+
+## MySQL变量
+
+1.用户变量
+
+​		以@开头，形式为“@变量名”。用户变量跟mysql客户端是绑定的设置的变量支队当前用户使用的客户端生效，当用户断开连接时所有变量会自动释放。
+
+2.全局变量
+
+​		定义时有如下两种形式   `set  GLOBAL  变量名`    或者   `set  @@global.变量名`。对所有客户端生效，但只有具有super权限才可以设置全局变量。
+
+3.会话变量
+
+​		只对连接的客户端生效。
+
+4.局部变量
+
+​		设置并作用于begin...end语句块之间的变量。declare语句专门用于电仪局部变量，而set语句是设置不同类型的变量，包括会话变量和全局变量。
+
+​		语法：`declare  变量名[...]  变量类型  [default 值]`
+
+# MySQL安全机制 DCL
+
+远程连接MySQL
+
+默认情况MySQL不允许远端连接，默认用户信息里的host设置为localhost，只允许本机登陆。
+
+`mysql  -h192.168.1.10 -uroot -p'mimashi123'`
+
+如果此时显示的是error 2003，应该是防火墙没关闭：
+
+```bash
+systemctl stop firewalld    		//关闭防火墙
+systemctl  disable firewalld  		//设置防火墙开机不启动
+systemctl  mask firewalld  			//最狠的，将整个firewall服务屏蔽掉，要想重新开启只能systemctl  unmask firewalld
+```
+
+关闭之后，如果显示error 1130， 可能是端口没开，MySQL工作默认端口是3306。
+
+## MySQL权限表
+
+mysql.user
+
+​		全局级别的授权。用户字段，权限字段，安全字段，资源控制字段。
+
+mysql.db
+
+​		数据库级别的授权。用户字段，权限字段。
+
+mysql.tables_priv
+
+​		表级别的授权。
+
+mysql.columns_priv
+
+​		列级别的授权
+
+查看权限：`show  grants\G`
+
+## MySQL用户管理
+
+### 1.登陆和退出mysql
+
+`mysql  -h192.168.5.24 -P 3306 -uroot -p'mimashi123' mysql -e'select user,host from user'`
+
+-h		指定主机名，默认为localhost
+
+-P		MySQL服务器端口，默认为3306
+
+-u		指定用户名，默认为root
+
+-p		指定登录密码，默认为空密码
+
+mysql		此处mysql为指定登陆的数据库
+
+-e		接SQL语句
+
+### 2.创建用户
+
+方法一：CREATE USER 语句创建
+
+​		`create user user1@'localhost' identified by 'mimashi123';`
+
+方法二：GRANT语句创建,常用
+
+​		`grant all on *.* to'user2'@'localhost' identified by 'mimashi123';`
+
+​		//`*.*`表示所有库所有表
+
+### 3.删除用户
+
+方法一：DROP USER 语句
+
+​		`drop user 'user1'@'localhost';`
+
+方法二：DELETE语句
+
+​		`delete from mysql.user  where user='user1'  and host='localhost';`
+
+​		`flush priviliges;`
+
+### 4.修改用户密码
+
+#### root用户修改自己密码
+
+方法一：
+
+​		`mysqladmin -uroot -p'oldpassword' password 'newpassword'`
+
+方法二：
+
+​		`update mysql.user set authentication_string=password('newpassword')  where user='root' and host='localhost';`
+
+​		`flush priviliges;`
+
+方法三：
+
+​		`set  password=password('newpassword');`
+
+#### root用户修改其他用户密码
+
+方法一：
+
+​		`set password for 'user1'@'localhost'=password('newpassword');`
+
+​		`flush priviliges;`
+
+方法二：
+
+​		`update mysql.user set authentication_string=password('newpassword') where user='user1'  and host='localhost';`
+
+​		`flush priviliges;`
+
+#### 普通用户修改自己密码
+
+​		`set password=password('newpassword');`
+
+#### 丢失root用户密码
+
+​		`vim  /etc/my.cnf`
+
+​				`[mysqld]`
+
+​				`skip-grant-tables`		
+
+​		`service mysqld restart`
+
+​		`mysql -uroot`
+
+​		`mysql>  update mysql.user set authentication_string=password('newpassword') where user='root' and host='localhost';`
+
+​		`mysql> flush priviliges;`
+
+## MySQL权限管理
+
+### 权限应用的顺序：
+
+​		user  >   db   >  tables_priv  >  colums_priv
+
+### 查看授权
+
+`show  grant\G`
+
+`show grants for admin1@'%'\G`     //管理员查看用户admin1授权的语句
+
+### 语法格式：
+
+`grant  权限列表  on  库名.表名  to  '用户名'@'客户端主机名'  [identified by ‘密码’  with option  参数]；`
+
+权限列表		all   所有权限，但不包括授权权限
+
+​					  select，update
+
+数据库.表名：	`*.*`			所有库下的所有表								global level
+
+​							web.*		web库下的所有表								database  level
+
+​							web.t1		web库下的t1表										table  level
+
+​							select (col1), insert(col1 ,col2) on mydb.mytb1		column level
+
+客户端主机：		%								所有主机
+
+​							192.168.2.%				192.168.2网段的所有主机
+
+​							192.168.2.23				指定主机
+
+​							localhost						指定主机
+
+with_option参数：grant option		授权选项
+
+​							MAX_QUERIES_PER_HOUR		定义每小时允许执行的查询数
+
+​							MAX_UPDATE_PER_HOUR	定义每小时允许执行的更新数
+
+​							MAX_CONNECTIONS_PER_HOUR	每小时可建立的连接数
+
+​							MAX_USER_CONNECTIONS	单个用户同时可建立的连接数								
+
+-----------
+
+还有更多使用   `help  grant`  查看							
+
+-----
+
+### 授权GRANT示例
+
+`grant  all  on *.*  to admin1@'%'  identified by 'mimashi123';` //全局授权，但无grant权限
+
+`grant all on *.* to admin2@'%' identified by 'mimashi123' with grant option;`   //有grant权限的全局授权，与管理员root一样的权限
+
+------
+
+`grant all on bbs.* to admin3@'%' identified by 'mimashi123';`//库级授权
+
+这条用的最多，但是实际生产中，一般是admin@‘192.168.12.12’，不会采用admin@'%'这种形式，一定是对生产环境里的前端具体用的某一台主机名进行授权，如Apache、Tomcat这些的服务器，而非所有主机 。‘%’是通配符。
+
+-------
+
+`grant all on bbs.user to admin4@'%' identified by 'mimashi123';`//表级授权
+
+`grant select(col1),insert(col2,col3) on bbs.user to admin5@'%' identified by 'mimashi123';`//列级授权
+
+
+
+全局授权的用户信息和权限信息都在user表中，而数据库授权的用户信息在user表中，授权信息在db表中。
+
+### 回收权限REVOKE
+
+语法：
+
+​	REVOKE  权限列表  ON  数据库名  FROM  用户名@'客户端主机名'；
+
+示例：
+
+`revoke  delete on *.* from admin1@'%';` 	
+
+`revoke all privileges on *.* from admin2@'%';`
+
+`revoke all privileges,grant option on *.* from 'admin3'@'%';`
+
+TIPS：
+
+5.6版本之前，如果想删除用户，必须先撤掉用户的权限 revoke all privileges 之后才能删除用户 drop user。如果没撤权限就删除了用户，之后如果创建了同名的被删用户，则之前的权限还在，留下了隐患。
+
+5.7就直接删除用户就行了   drop  user
+
