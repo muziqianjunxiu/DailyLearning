@@ -8,6 +8,12 @@
 
 ​		DCL语句	数据库控制语言：例如控制用户访问权限GRANT、REVOKE
 
+# mysql小技巧
+
+ctr+z	从mysql界面暂停，转到系统界面，从系统界面输入fg，回到mysql界面。也可以在mysql控制台 使用system  后跟linux命令来执行linux命令
+
+lsblk	linux查看硬盘
+
 # 系统数据库
 
 ## information_schema
@@ -1308,4 +1314,305 @@ TIPS：
 5.6版本之前，如果想删除用户，必须先撤掉用户的权限 revoke all privileges 之后才能删除用户 drop user。如果没撤权限就删除了用户，之后如果创建了同名的被删用户，则之前的权限还在，留下了隐患。
 
 5.7就直接删除用户就行了   drop  user
+
+# MySQL日志管理
+
+主要以rpm包安装讲解：
+
+ /etc/my.cnf		针对这个文件写入相关指令开启或关闭相关日志文件
+
+error log   	错误日志   		 排错		/var/log/mysqld.log    	默认开启
+
+bin  log		 二进制日志		备份		增量备份DDL	DML	DCL，主要存储数据库的变更日志，如增删改。不包括查。
+
+relay log		中继日志		   复制		接收replication	master
+
+slow log 		慢查询日志		调优		查询时间超过指定值
+
+## ERROR   Log
+
+log-error=/var/log/mysqld.log			向/etc/my.cnf中写入这条，开启error log
+
+## Binary Log
+
+log-bin=/var/log/mysql-bin/muzi		//向/etc/my.cnf中写入这条，开启bin log，加muzi是为了将日志文件命名前缀，生成的日志文件如：muzi-bin.0001	muzi-bin.0002等
+
+sever-id=2										//5.7以后的版本还得加上这条，数字2随便取，一般取ip的最后数字，比如10
+
+[root@muzi~]#  mkdir /var/lib/mysql-bin			//这是为了将数据库文件和日志文件分离，自建mysql-bin目录，将日志文件存入。默认日志文件是和mysql文件一起存放在/var/lib/mysql/中。
+
+[root@muzi~]#  chown mysql.mysql /var/lib/mysql-bin/    //文件夹将权限改为mysql用户mysql组
+
+[root@muzi~]#  systemctl reatart mysqld		//重启mysqld
+
+注：
+
+1.systemctl restart  mysqld		系统控制台命令，重启mysqld会截断日志，生成一个新的日志
+
+2.flush logs		mysql控制台内命令，也会截断日志，生成新的日志。
+
+3.reset master 		删除所有binlog，最好别用。这就是mysql的`rm -rf /`删库跑路~~
+
+4.删除部分bin日志
+
+​		PURGE BINARY LOGS TO 'mysql-bin.010';		删除指定日志文件mysql-bin.010
+
+​		PURGE BINARY LOGS BEFORE '2019-4-02 22:46:23';	删除指定日期前的日志
+
+ 5.暂停写入bin日志   
+
+SET	SQL_LOG_BIN=0;  //，mysql控制台输入。大小写没关系。关闭写入日志文件。
+
+SET	SQL_LOG_BIN=1; //打开写入日志文件。要注意，这只是对当前mysql会话起作用，如果关了重进，或者另一个用户，其相应的日志文件还是会写入，只不过你自己的没有写入。
+
+6.截取binlog
+
+all：
+
+#mysqlbinlog	mysql.00001
+
+datatime:    //如果操作是发生在同一秒，则针对datetime就不如针对position了。
+
+#mysqlbinlog	mysql.00001 --start-datetime='2019-4-02-23：01:23'
+
+#mysqlbinlog	mysql.00001 --stop-datetime='2019-4-02-23：01:23'
+
+#mysqlbinlog	mysql.00001 --start-datetime='2019-4-02-23：01:23'  --stop-datetime='2019-4-02-23：01:23'
+
+position：   //常用。备份、恢复、主从同步等等。
+
+#mysqlbinlog	mysql.00001 --start-position=200
+
+#mysqlbinlog	mysql.00001 --stop-postiton=220
+
+#mysqlbinlog	mysql.00001 --start-positon=270 --stop-positon=930
+
+## Slow	Query	Log
+
+slow_query_log=1	//向/etc/my.cnf文件中写入该句，打开慢查询日志功能。
+
+slow_query_log_file=/var/log/mysql-slow/slow.log  //自定义慢查询日志文件
+
+long_query_time=3			//定义慢查询时间，这里是3秒为一个慢查询，超过3秒的查询语句才会写入慢查询日志中。用于查询语句调优。
+
+[root@muzi~]#   mkdir /var/log/mysql-slow
+
+[root@muzi~]#   chown mysql.mysql /var/log/mysql-slow/
+
+[root@muzi~]#   systemctl restart mysqld
+
+查看慢查询日志
+
+eg.：BENCHMARK(count,expr)
+
+​			select benchmark(500000000,2*3);
+
+# MySQL备份
+
+databases	binlog	my.conf
+
+所有备份数据都应放在非数据库本地，而且建议有多份副本。
+
+测试环境中做日常恢复演练，恢复较备份更为重要。
+
+数据的一致性		服务的一致性
+
+逻辑备份：备份的是建表、建库、插入等操作所执行的SQL语句（DDL DML DCL），适用于中小型数据库，效率相对较低。
+
+​				mysqldump			mydumper
+
+物理备份：直接复制数据库文件，适用于大型数据库环境，不受存储引擎的影响，但不能恢复到不同的MySQL版本。
+
+​				tar，cp	xtrabackup		inbackup		lvm snapshot
+
+​		完全备份
+
+​		增量备份
+
+​		差异备份 
+
+## 物理备份
+
+### tar备份
+
+备份期间，服务不可用
+
+备份过程：完全物理备份
+
+```bash
+1.停止数据库
+	systemctl  stop  mysqld
+2.tar备份数据
+	mkdir  /backup
+	tar -cf /backup/`data+%F`_mysql_all.tar.gz /var/lib/mysql
+	//当天日期加_mysql_all.tar.gz	
+	ls /backup/			//会生成如2019-2-22_mysql_all.tar.gz
+```
+
+注：备份文件应该复制到其他服务器或存储上。
+
+还原过程：
+
+```bash
+1.停止数据库
+	systemctl stop mysqld
+2.清理环境
+	rm -rf /var/lib/mysql/*
+3.导入备份数据
+	tar -xf /backup/2019-2-22_mysql_all.tar.gz -C /
+4.启动数据库
+	chown -R mysql.mysql  /var/lib/mysql  //恢复过后如果权限不对则需要改一下权限
+	systemctl start mysqld
+5.binlog恢复
+	
+```
+
+###  LVM  snapshot  逻辑卷快照备份    第43集  有点乱
+
+数据一致，服务可用
+
+注：MySQL数据lv 和 将要创建的snapshot 必须在同一VG，即快照卷和原始卷为同一VG。因此VG必须要有一定剩余空间。快照卷主要解决的是数据的一致性问题。
+
+加全局读锁---->LVM mysql 快照----> 释放锁----> 挂载快照卷（只读方式）---->从快照卷中复制数据---->卸载并删除快照卷 
+
+```bash
+df -Th   查看挂载情况
+
+lvscan	查看已建立快照
+```
+
+情况一：正常安装MySQL：
+
+​		1.安装系统
+
+​		2.准备LVM，例如 /dev/vg_muzi/lv-mysql, mount /var/lib/mysql  将mysql挂载到这个逻辑卷上
+
+​		3.安装MySQL，默认datadir=/var/lib/mysql
+
+情况二：MySQL已经运行一段时间，数据并没有存储在LVM上，而是在/var/lib/mysql中，所以需要新建逻辑卷并将mysql数据挂载到新建的逻辑卷。，将现在的数据迁移到LVM：
+
+​		1.准备lvm及文件系统
+
+```bash
+[root@muzi~]#  lvcreate -n lv-mysql -L 2G datavg  //创建一个逻辑卷，大小为2G
+[root@muzi~]# mkfs.xfs /dev/datavg/lv-mysql  //将其格式化为xfs系统
+```
+
+​		2.将数据迁移到LVM
+
+```bash
+[root@muzi~]# systemctl stop mysqld
+[root@muzi~]# mount /dev/datavg/lv-mysql  /mnt/		//临时挂载点
+[root@muzi~]# cp -a  /var/lib/mysql/*  /mnt		//将MySQL原数据拷贝到临时挂载点/mnt，此时/mnt里面数据就是mysql关闭服务时那一刻的数据了，拍了个照。
+[root@muzi~]# umount   /mnt/			//删除临时挂载点
+[root@muzi~]# vim /etc/fstab			//加入fstab开机挂载
+	/dev/datavg/lv-mysql 	/var/lib/mysql	xfs	defaults	0  0
+[root@muzi~]# mount  -a
+[root@muzi~]# chown -R mysql.mysql  /var/lib/mysql
+```
+
+#### LVM快照备份流程：
+
+1.加全局读锁
+
+```mysql
+mysql>	flush	tables with read lock;
+```
+
+2.创建快照
+
+```bash
+[root@muzi~]# lvcreate -L 500M -s -n lv-mysql-snap  /dev/datavg/lv-mysql
+[root@muzi~]# mysql -p'mimashi123' -e'show master status' > /backup/`date +%F`_position.txt  //-e的语句是查看创建快照时的position，整句话是将创建快照时的position存入txt文件中，最好记下来，当前备份到的位置，以后恢复的时候就从这个position位置处恢复。
+```
+
+3.释放锁
+
+```mysql
+mysql> unlock	tables;
+```
+
+1-3必须在同一会话中完成，第1步加锁之后，mysql会话不能关，一旦关闭，锁就自动失效。所以实际生产中不是1,2,3分步执行的，而是采用下面语句使得这三步语句一起执行，保证处于同一会话中：
+
+```bash
+[root@muzi~]# echo 'FLUSH TABLES WITH READ LOCK;SYSTEM lvcreate -L 500M -s -n lv-mysql-snap  /dev/datavg/lv-mysql; UNLOCK TABLES;'  |  mysql -p'mimashi123'   
+
+[root@muzi~]# echo "FLUSH TABLES WITH READ LOCK;SYSTEM lvcreate -L 500M -s -n lv-mysql-snap  /dev/datavg/lv-mysql;"  | mysql -p'mimashi123'
+//这两句的效果是一样的，因为语句执行完毕后，会话结束，锁自动失效，所以不需要手动解锁。
+```
+
+​		4.从快照中备份
+
+```bash
+[root@muzi~]# mount -o ro  /dev/datavg/lv-mysql-snap  /mnt/	 //xfs: -o ro,nouuid
+[root@muzi~]# cd /mnt/
+[root@muzi~]# tar -cf /backup/`date+%F`_mysql_all.tar.gz  ./*
+```
+
+​		5.移除快照
+
+```bash
+[root@muzi~]# cd;umount /mnt/
+[root@muzi~]# lvremove -f /dev/vg_mizi/lv-mysql-snap
+```
+
+脚本+Cron  第44集，自动化部署，要再看。
+
+```bash
+#!/bin/bash
+#LVM backmysql...
+back_dir=/backup/`date+%F`
+[ -d $back_dir ] || mkdir -p $back_dir
+echo "FLUSH TABLES WITH READ LOCK;SYSTEM lvcreate -L 500M -s -n lv-mysql-snap /dev/datavg/lv-mysql;" | mysql -p'mimashi123'
+mount -o ro,nouuid /dev/datavg/lv-mysql-snap  /mnt
+rsync -a /mnt/ $back_dir
+if[$? -eq 0 ];then
+	umount /mnt/
+	lvremove -f /dev/datavg/lv-mysql-sanp
+fi
+```
+
+#### LVM恢复流程
+
+1.停止数据库
+
+2.清理环境
+
+3.导入数据
+
+4.修改权限
+
+5.启动数据库
+
+6.binlog恢复
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
