@@ -1654,7 +1654,26 @@ mysql> unlock	tables;
 [root@muzi~]# lvremove -f /dev/vg_mizi/lv-mysql-snap
 ```
 
-脚本+Cron  第44集，自动化部署，要再看。
+#### LVM恢复流程
+
+```bash
+1.停止数据库
+	systemctl stop mysqld
+2.清理环境
+	rm -rf /var/lib/mysql/*
+3.导入数据
+	tar xf /backup/2019-9-22_mysql_all.tar.gz -C /var/lib/mysql/
+4.修改权限
+	chown -R mysql.mysql	/var/lib/mysql/
+5.启动数据库
+	systemctl start mysqld
+	echo "FLUSH TABLES WITH READ LOCK;SYSTEM lvcreate -L 500M -s -n lv-mysql-snap /dev/datavg/lv-mysql;" | mysql -p'mimashi123'
+6.binlog恢复
+	
+
+```
+
+#### 脚本+Cron  第44  45集，自动化部署，要再看。
 
 ```bash
 #!/bin/bash
@@ -1670,21 +1689,7 @@ if[$? -eq 0 ];then
 fi
 ```
 
-#### LVM恢复流程
-
-1.停止数据库
-
-2.清理环境
-
-3.导入数据
-
-4.修改权限
-
-5.启动数据库
-
-6.binlog恢复
-
-
+### percoma--Xtrabackup  物理备份
 
 
 
