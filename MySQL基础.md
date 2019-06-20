@@ -1895,7 +1895,127 @@ LVM的缺点就是过于麻烦，要掌握系统管理员权限才可以进行�
 
 ## 逻辑备份
 
+逻辑备份可以自动记录binlog和position。保存在mysqldump的sql文件中。
 
+数据一致、服务可用性。 
 
+### 语法
 
+`mysqldump -h 服务器  -u用户名  -p密码  数据库名  >备份文件.sql`
+
+关于数据库名：
+
+​		-A，-all-databases						所有库
+
+​		school											数据库名
+
+​		 school t1 t2									school库的t1，t2表
+
+​		-B，--database bbs test mysql		多个数据库
+
+关于其他参数说明：
+
+​		--single-transaction		innoDB一致性 服务可用性
+
+​		-x，--lock-all-tables		myISAM一致性  服务可用性
+
+​		-E，--events					备份事件调度器代码
+
+​		--opt								 同时启动各种高级选项
+
+​		-R，--routines				  备份存储过程和存储函数
+
+​		-F，--flush-logs				备份之前截断日志
+
+​		--triggers						  备份触发器
+
+​		--master-data=1 | 2			  该选项将会记录binlog的日志位置与文件名并追加到文件中，建议=1.
+
+### 备份流程
+
+```bash
+mysqldump -uroot -p'miamshi123'  --all-databases --single-transaction --routines --triggers --master-data=1 --flush-logs >/backup/`date+%F-%H`-mysql-all.sql  //date+%F是年月日，%H加上时。
+ls /backup/    //此文件夹中会生成以备份时间命名的文件，如2019-12-22-22 
+cat /backup/2019-12-22-22-mysql-all.sql
+```
+
+备份之后，业务正常推进...
+
+```mysql
+create database test；
+create  table t1(id int);
+insert  into t1 values (1);
+...
+还可能mysql崩溃....或者mysql被误删
+这时候binlog就起作用了
+```
+
+```bash
+mysql的binlog日志作用是用来记录mysql内部增删改等对mysql数据库有更新内容的记录（对数据库进行改动的操作），对数据库查询的语句如show，select开头的语句，不会被binlog日志记录，主要用于数据库的主从复制与及增量恢复。
+
+binlog需要放在另外的存储位置，不能随着mysql或系统崩溃而消失。
+binlog默认是存放在/var/lib/mysql中的。
+my.cnf中的内容：log-bin=mysqlbin 这句，生成的binlog文件名就是以mysqlbin开头的。
+
+在/etc/my.cnf中自定义配置binlog文件位置。
+vim /etc/my.cnf  //找到log-bin的部分
+	expire_logs_days=5  //配置定期清理
+	log-bin=/home/logs/mysql-bin   //自定义的存放目录
+	binlog_format=ROW  //记录的方式是行。还有另外两种statement level和mixed模式。参考https://www.cnblogs.com/rinack/p/9595370.html
+systemctl restart mysqld   //重启mysql，去新建的目录下看看，已经有最新的日志了
+mysqlbinlog工具的作用是解析mysql的二进制binlog日志内容，把二进制日志解析成可以在MySQL数据库里执行的SQL语句。
+```
+
+常用binlog命令
+
+```mysql
+show master logs;		查看所有binlog日志列表 
+show variables like 'log_%';  		查看日志开启状态
+ show master status;查看最新一个binlog日志的编号名称，及其最后一个操作事件结束点
+flush logs;   刷新log日志，立刻产生一个新编号的binlog日志文件，跟重启一个效果
+reset master;   清空所有binlog日志
+mysqlbinlog qfcloud-bin.00004   查看日志qfcloud-bin.00004
+```
+
+### 恢复流程（要在mysql运行下完成）
+
+```bash
+
+1.停止数据库(或找个新装的mysql)
+systemctl stop mysqld
+
+2.清理环境（新环境没必要）
+rm -rf /var/lib/mysql/*
+rm -rf /var/log/mysql-bin/*
+rm -rf /var/log/mysql-slow/*
+rm -rf /var/log/mysqld.log
+
+3.启动数据库
+systemctl start mysqld   //此时会重新初始化，产生新的密码
+初始密码在/var/log/mysqld.log中
+grep 'password' /var/log/mysqld.log
+
+4.重置密码 
+mysqladmin -uroot -p'初始密码' password 'mimashi456'
+
+5.导入备份数据
+建议在恢复时，暂停binlog。因为恢复过程本身也会产生二进制日志。
+方法一：
+进到mysql控制台进行暂停binlog再source恢复
+mysql> set sql_log_bin=0;
+mysql> source /backup/2019-12-22-22-mysql-all.sql
+方法二：
+vim /backup/2019-12-22-22-mysql-all.sql  //编辑备份文件，在MASTER_LOG_FILE那句前面加上这句：
+	set sql_log_bin=0;
+mysql -p'mimashi456' < /backup/2019-12-22-22-mysql-all.sql
+这里恢复以后，密码就变成备份数据库的密码了（mimashi123），而非刚刚设置的那个新密码（mimashi456）。 
+mysql -p'mimashi456' -e'flush privileges'  //-e执行sql语句，刷新授权表，有利于生成binlog截断
+
+6.重启mysql
+systemctl restart mysqld    //密码就变回备份数据库的密码了（mimashi123）。
+
+6.binlog日志恢复
+mysqlbinlog qfcloud-bin.00003 --start-position=154 | mysql -uroot -p'mimashi123'  //备份点是 00003日志文件的 154位置，从这开始恢复
+mysqlbinlog qfcloud-bin.00004 | mysql -uroot -p'mimashi123'  //接着恢复下一个日志
+```
 
