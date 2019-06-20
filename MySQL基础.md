@@ -1515,19 +1515,15 @@ databases	binlog	my.conf
 
 数据的一致性		服务的一致性
 
-逻辑备份：备份的是建表、建库、插入等操作所执行的SQL语句（DDL DML DCL），适用于中小型数据库，效率相对较低。
+**逻辑备份**：备份的是建表、建库、插入等操作所执行的SQL语句（DDL DML DCL），适用于中小型数据库，效率相对较低。使用的是mysql工具。
 
 ​				mysqldump			mydumper
 
-物理备份：直接复制数据库文件，适用于大型数据库环境，不受存储引擎的影响，但不能恢复到不同的MySQL版本。
+**物理备份**：直接复制数据库文件，适用于大型数据库环境，不受存储引擎的影响，但不能恢复到不同的MySQL版本。使用的是系统工具。需要考虑数据的一致性、服务的可用性。
 
 ​				tar，cp	xtrabackup		inbackup		lvm snapshot
 
-​		完全备份
-
-​		增量备份
-
-​		差异备份 
+​				完全备份				增量备份				差异备份 
 
 ## 物理备份
 
@@ -1609,7 +1605,7 @@ lvscan	查看已建立快照
 [root@muzi~]# chown -R mysql.mysql  /var/lib/mysql
 ```
 
-#### LVM快照备份流程：
+#### LVM备份流程
 
 1.加全局读锁
 
@@ -1661,7 +1657,7 @@ mysql> unlock	tables;
 	systemctl stop mysqld
 2.清理环境
 	rm -rf /var/lib/mysql/*
-3.导入数据
+3.恢复数据
 	tar xf /backup/2019-9-22_mysql_all.tar.gz -C /var/lib/mysql/
 4.修改权限
 	chown -R mysql.mysql	/var/lib/mysql/
@@ -1689,31 +1685,215 @@ if[$? -eq 0 ];then
 fi
 ```
 
-### percoma--Xtrabackup  物理备份
+### percona--Xtrabackup  物理备份
 
+它是开源免费的支持MySQL数据库热备份的软件，能对innodb和xtradb存储引擎的数据库非阻塞地备份，不暂停服务创建innodb热备份；
 
+percona是一家老牌的mysql服务咨询公司，旗下mysql分支产品--percona server。
 
+安装xtrabackup 
 
+`yum install https://repo.percona.com/yum/percona-release-latest.noarch.rpm`
 
+`yum install percona-xtrabackup-80`
 
+rpm -qa |grep percona  //查看有没有装好
 
+rpm -ql percona-xtrabackup-24-...    //查看软件
 
+案例1：
 
+完全备份的备份流程
 
+```bash
+mkdir  /xtrabackup/full  -p   //新建备份文件夹
+innobackupex --user=root --password='mimashi123' /xtrabackup/full  //将整个mysql文件备份到/xtrabackup/full文件夹中  备份时长取决于数据库大小
+cd /xtrabackup/full/    //切换到备份文件夹中，会发现mysql所有的文件都在这了
+ls   //此时会以备份时间创建备份文件夹，如2019-12-12_23-22-10
+ls 2019-12-12_23_22_10/		//该文件夹中有个xtrabackup_binlog_info文件，记录了备份的位置，当前的二进制文件binlog是几，以及position是几，恢复的时候可以依据此文件进行恢复。
 
+```
 
+完全备份的恢复流程
 
+```bash
+1.停止数据库
+systemctl stop mysqld
 
+2.清理环境
+rm -rf /var/lib/mysql/*
+rm -rf /var/lib/mysqld.log
+rm -rf /var/log/mysql-slow/slow.log
 
+3.重演回滚
+innobackupex --apply-log /xtrabackup/full/2019-12-12_23-22-10/   //重演回滚--allpy-log
 
+4.恢复数据
+innobackupex --copy-back /xtrabackup/full/2019-12-12_23-22-10/   //恢复数据。将数据文件拷贝到/var/lib/mysql中去，这里是通过my.cnf文件中的'basedir=/var/lib/mysql'知道拷贝的目的地址的 
 
+5.修改权限
+chown -R mysql.mysql /var/lib/mysql
 
+6.启动数据库
+systemctl start mysqld
+```
 
+案例2 ：
 
+增量备份的备份流程
 
+```mysql
+准备一个表t
+create database t1;
+use t1;
+create table t(id int);
+insert into t values(1);
+```
 
+```bash
+1.周一：完整备份
+mkdir /xtrabackup
+innobackupex --user=root --password='mimashi123' /xtrabackup
+ls /xtrabackup/	//此时问文件夹内会产生以备份时时间命名的完全备份文件夹，如2019-12-12_23-22-10
 
+2.周二~周六：增量备份
+// 周二：mysql> insert into t values(2);
+innobackupex --user=root --password='mimashi123' --incremental /xtrabackup --incremental-basedir=/xtrabackup/2019-12-12_23-22-10/
+ls /xtrabackup/     //除了第一个生成的第一个完全备份文件夹，这是会生成另一个增量备份文件夹，如2019-12-13_23-22-10,下一次的增量备份将以这个新的文件夹为basedir进行增量备份
 
+//周三：mysql> insert into t values(3);
+innobackupex --user=root --password='mimashi123' --incremental /xtrabackup --incremental-basedir=/xtrabackup/2019-12-13_23-22-10/
+ls /xtrabackup/     //除了第一个生成的第一个完全备份文件夹，以及周二生成另一个增量备份文件夹，这次会生成周三的增量备份文件夹，如2019-12-14_23-22-10,同样的，下一次的增量备份将以这个新的文件夹为basedir进行增量备份
+```
+
+增量备份的恢复流程
+
+```bash
+1.停止数据库
+systemctl stop mysqld
+
+2.清理环境
+rm -rf /var/lib/mysql/*
+rm -rf /var/lib/mysqld.log
+rm -rf /var/log/mysql-slow/slow.log
+
+3.依次重演回滚 redo log ，想恢复到哪天的就回滚到哪天。其实就是将那天的增量文件夹加入到完全备份文件夹中去。
+先回滚周一的：full  2019-12-12_23-22-10
+innobackupex --apply-log --redo-only /xtrabackup/2019-12-12_23-22-10/
+依次回滚周二： 2019-12-13_23-22-10  周三： 2019-12-14_23-22-10
+innobackupex --apply-log --redo-only /xtrabackup/2019-12-12_23-22-10/ --incremental-dir=/xtrabackup/2019-12-13_23-22-10
+innobackupex --apply-log --redo-only /xtrabackup/2019-12-12_23-22-10/ --incremental-dir=/xtrabackup/2019-12-14_23-22-10
+
+4.恢复数据，拷贝的始终是完全备份的那个文件夹
+三种方式：
+cp： cp -rf /xtrabackup/2019-12-12_23-22-10/* /var/lib/mysql/ 
+
+rsync
+
+innobackupex copy-back (依据的是my.cnf的datadir)：
+innobackupex --copy-back /xtrabackup/full/2019-12-12_23-22-10/   //恢复数据。将数据文件拷贝到/var/lib/mysql中去，这里是通过my.cnf文件中的'basedir=/var/lib/mysql'知道拷贝的目的地址的 
+
+5.修改权限
+chown -R mysql.mysql /var/lib/mysql
+
+6.启动数据库
+systemctl start mysqld
+
+7.binlog恢复，从备份的那个点以后的那些操作，依靠二进制文件进行恢复。
+
+```
+
+案例3：
+
+差异备份的备份流程
+
+```mysql
+准备一个表t
+create database t1;
+use t1;
+create table t(id int);
+insert into t values(1);
+```
+
+```bash
+1.周一：完整备份
+mkdir /xtrabcakup
+innobackupex --user=root  --password='mimashi123' /xtrabackup/
+
+2.周二~周六：差异备份
+ //周二：mysql> insert into t values(2);
+ innobackupex --user=root --password='mimashi123' --incremental /xtrabackup --incremental-basedir=/xtrabackup/完全备份目录（周一的）
+ 
+周三：mysql> insert into t values(3);
+innobackupex --user=root --password='mimashi123' --incremental /xtrabackup --incremental-basedir=/xtrabackup/完全备份目录（注意还是基于周一的哦）
+```
+
+差异备份的恢复流程
+
+```bash
+1.停止数据库
+systemctl stop mysqld
+
+2.清理环境
+rm -rf /var/lib/mysql/*
+rm -rf /var/lib/mysqld.log
+rm -rf /var/log/mysql-slow/slow.log
+
+3.重演回滚
+第一步，先回滚完全备份文件夹：
+innobackupex --apply-log /xtrabackup/周一的完全备份文件夹   
+第二歩，想恢复到哪天，直接回滚那天的差异备份文件夹，而不用一次进行回滚，这里回滚到周三：
+innobackupex --apply-log --redo-only /xtrabackup/完全备份文件夹（周一的）  --incremental-dir=/xtrabackup/周三的差异备份文件夹
+
+4.恢复数据
+三种方式：cp、rsync、innobackupex --copy-back
+innobackupex --copy-back /xtrabackup/full/周一的完全备份文件夹
+
+5.修改权限
+chown -R mysql.mysql /var/lib/mysql
+
+6.启动数据库
+systemctl start mysqld
+
+7.binlog恢复，从备份的那个点以后的那些操作，依靠二进制文件进行恢复
+
+```
+
+## 物理备份注意事项
+
+任何的备份，物理或是逻辑，都只是备份到某个备份点，从这个备份点之后的所有操作，都得依靠binlog记录。binlog不是专门用来备份恢复的，但是binlog可以使你的恢复离你的崩溃点更接近。
+
+所以my.cnf中的binlog得配置好。而且得在备份的时候要记住 备份点处的binlog的名称，以及对应的position。
+
+所以脚本中最好加上下面这句，目的是将binlog及position记录下来。
+
+`mysql -p'mimashi123' -e'show master status' > /backup/date +%F_position.txt  //-e的语句是查看创建快照时的position，整句话是将创建快照时的position存入txt文件中，最好记下来，当前备份到的位置，以后恢复的时候就从这个position位置处恢复。`
+
+`mysql>show master status\G`  查看当前的binlog及position。
+
+mysql重启、或对库有新的操作，都会使binlog及position截断生成新的。
+
+### LVM
+
+将MySQL的数据存放在逻辑卷上，借助于逻辑卷快照，可以将mysql数据瞬间定个保存下来，不用停数据库太久，保证了服务的可用性。先锁表，再快照，再释放锁，要注意这三个行为一定要在同一个会话当中，否则锁会随着会话的断开自动释放。之后挂载逻辑卷，这挂载也是一个临时性挂载，而且所有操作都是基于脚本加上计划任务来实现的，不会以手动实现。包括每天的备份是以每天的日期加上文件夹作为名称进行备份的 。另外数据库若比较大，备份比较多的情况下，要考虑删除，可以结合shell脚本当中利用AWK或FIND的方式去进行删除。
+
+LVM的缺点就是过于麻烦，要掌握系统管理员权限才可以进行。
+
+### percona工具
+
+要注意，它会去读数据库配置文件当中的datadir，所以务必要先确定这个配置文件中的相关设置。
+
+增量备份，都是基于上一次备份。
+
+差异备份，都是基于完全备份。
+
+完全备份恢复，只需--apply-log完全备份文件夹。
+
+增量备份恢复，需先--apply-log完全备份文件夹，再依次--apply-log增量文件夹到需要恢复的那一天的增量备份文件夹。
+
+差异备份恢复，需先--apply-log完全备份文件夹，再--apply-log需要恢复的那一天的差异备份文件夹。
+
+## 逻辑备份
 
 
 
