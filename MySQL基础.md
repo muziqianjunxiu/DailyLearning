@@ -16,6 +16,8 @@
 
 `select database（）`	查看当前使用的是哪个数据库
 
+`ss -tnlp |grep :3306`	查看3306端口是否打开
+
 # 系统数据库
 
 ## information_schema
@@ -1895,7 +1897,7 @@ LVM的缺点就是过于麻烦，要掌握系统管理员权限才可以进行�
 
 ## 逻辑备份
 
-逻辑备份可以自动记录binlog和position。保存在mysqldump的sql文件中。
+加`--master-data=1`之后，逻辑备份可以自动记录binlog和position。保存在mysqldump的sql文件中。
 
 数据一致、服务可用性。 
 
@@ -1925,11 +1927,11 @@ LVM的缺点就是过于麻烦，要掌握系统管理员权限才可以进行�
 
 ​		-R，--routines				  备份存储过程和存储函数
 
-​		-F，--flush-logs				备份之前截断日志
+​		-F，--flush-logs				备份之前截断日志，使备份点之后的操作重开一个binlog记录，就避免了binlog恢复时要使用start-position和stop-position了。
 
 ​		--triggers						  备份触发器
 
-​		--master-data=1 | 2			  该选项将会记录binlog的日志位置与文件名并追加到文件中，建议=1.
+​		--master-data=1 | 2			  该选项将会记录binlog的日志位置与文件名并追加到文件中，建议=1.会自动记录。=2得手动指定。
 
 ### 备份流程
 
@@ -1973,7 +1975,7 @@ show master logs;		查看所有binlog日志列表
 show variables like 'log_%';  		查看日志开启状态
  show master status;查看最新一个binlog日志的编号名称，及其最后一个操作事件结束点
 flush logs;   刷新log日志，立刻产生一个新编号的binlog日志文件，跟重启一个效果
-reset master;   清空所有binlog日志
+reset master;   清空所有binlog日志   //慎用！！
 mysqlbinlog qfcloud-bin.00004   查看日志qfcloud-bin.00004
 ```
 
@@ -1993,11 +1995,13 @@ rm -rf /var/log/mysqld.log
 3.启动数据库
 systemctl start mysqld   //此时会重新初始化，产生新的密码
 初始密码在/var/log/mysqld.log中
+tips：shell脚本自动得到mysql临时密码语句：
+mysql_pass=`grep 'temporary password' /var/log/mysqld.log | tail -1 |awk '{print $NF}'`    //echo $mysql_pass  就能得到临时密码了。
 grep 'password' /var/log/mysqld.log
 
 4.重置密码 
 mysqladmin -uroot -p'初始密码' password 'mimashi456'
-
+如果用脚本：mysqladmin -p"$mysql_pass"  password "mimashi456" //注意这里的-p后面一定是双引号，不可以用单引号，这涉及到shell脚本的变量使用规则。
 5.导入备份数据
 建议在恢复时，暂停binlog。因为恢复过程本身也会产生二进制日志。
 方法一：
@@ -2016,6 +2020,375 @@ systemctl restart mysqld    //密码就变回备份数据库的密码了（mimas
 
 6.binlog日志恢复
 mysqlbinlog qfcloud-bin.00003 --start-position=154 | mysql -uroot -p'mimashi123'  //备份点是 00003日志文件的 154位置，从这开始恢复
-mysqlbinlog qfcloud-bin.00004 | mysql -uroot -p'mimashi123'  //接着恢复下一个日志
+mysqlbinlog qfcloud-bin.00004 qfcloud-bin.00005 qfcloud-bin.00006 | mysql -uroot -p'mimashi123'  //接着恢复余下需要恢复的日志
+
+假如在00007里有误删的操作，使用binlog恢复时，只需跳过相应position的语句执行就可以了，例如在00006的730到930是误删除的操作,220以后的是正确的操作：
+mysqlbinlog  --start-position=232 qfcloud-bin.00003 qfcloud-bin.00004 qfcloud-bin.00005 | mysql -uroot -p'mimashi123'  
+mysqlbinlog  --stop-position=730 qfcloud-bin.00006 | mysql -uroot -p'mimashi123' 
+mysqlbinlog  --start-position=930 qfcloud-bin.00006 qfcloud-bin.00007 qfcloud-bin.00008 | mysql -uroot -p'mimashi123' 
 ```
+
+##  表数据 的导入导出
+
+### MySQL命令导出文本文件
+
+```bash
+mysql -uroot -p'mimashi123' -e 'select * from bbs.t1' > /table_save/t1.txt		//导出为txt
+mysql -uroot -p'mimashi123' --xml -e 'select * from bbs.t1' > /table_save/t1.xml		//导出为xml
+mysql -uroot -p'mimashi123' --html -e 'select * from bbs.t1' > /table_save/t1.html		//导出为html
+```
+
+
+
+### SELECT ... INTO OUTFILE  导出文本文件
+
+有两个限制：
+
+5.7以后有安全限制，需要在配置文件`my.cnf`中加入：
+
+​		`secure-file-priv= /table_save`		//改完my.cnf记得重启mysql
+
+另一个限制是导出表的存放目录，mysql得有权限：
+
+​		`chown  mysql.mysql  /table_save/`
+
+导出表的语法：  `select ... into outfile 导出地址/名称`
+
+```mysql
+select * from bbs.t1 into outfile '/table_save/t1';
+system cat /table_save/t1 //此时就看到t1表内的数据了，字段间没有分隔符
+
+select * from bbs.t1 into outfile 'table_save/t1_2' fields terminated by '---';  //使用‘---’作为导出文件内字段显示分隔符
+```
+
+表的导出导入只备份表的记录，不会备份表结构。因此需要通过mysqldump 备份表结构，恢复时先恢复表结构，再导入数据。
+
+### LOAD  DATA INFILE  导入文本文件
+
+```mysql
+delete from bbs.t1;  //删除t1表内容
+
+load data infile '/table_save/t1.txt' into table bbs.t1;  //将数据导入t1表
+
+load data infile 'table_save/t1_2.txt' into table bbs.t1 fields terminated by '---';  //如果导出时定义了分隔符，导入时也要指定相应的分隔符。
+```
+
+# MySQL复制技术	AB replication
+
+Primary-Secondary Replication	主从
+
+Group Replication	集群
+
+不等于备份
+
+实时同步	机械故障	远程灾备	用于备份	高可用HA	负载均衡	读写分离	分布式数据库
+
+M	M-S	M-S-S	M-M	M-M-S-S多源复制
+
+复制原理
+
+1.在主库上把数据更改（DDL	DML	DCL）的语句记录到二进制日志中（binlog）。
+
+2.备库I/O线程将主库上的日志复制到自己的中继日志（relay log）中。
+
+3.备库SQL线程读取中继日志中的事件，将其重放到备份数据库之上。
+
+## M-S	一主一备
+
+流程：
+
+```mysql
+master：
+1. binlog开启  设置server-id=1  重启mysql	restart
+2. grant replication  授权从机访问权限
+3.初始化数据库	
+mysqldump all databases(log_file,position) scp rsync ----->master2		//log_file和position记录了复制点。
+
+slave:
+1. 设置server-id=2，
+2.初始化数据库	使用mysql控制台source方式导入master的数据，注意此时master的业务正常走，所以此时slave和master的数据是不一致的，但是借助于log_file和position，我们可以知道复制点的位置，即数据差异开始的地方。等到从机角色设置好后，从机会自动从复制点去复制新产生的数据。复制的时候设置--master-data=1可以自动记录这两项内容到复制的sql文件中。
+3.设置从机角色  
+		mysql > change master to
+				master_host='master1',		//或master1的IP
+				master_user='授权用户',
+				master_password='授权密码'，
+				master_log_file='xxx',		//log_file
+				master_log_pos=xxx;			//position
+4. mysql > start slave;			//启动slave角色
+5. mysql > show slave status\G  //验证结果是否正常
+```
+
+示例：
+
+master1（master）  	192.168.122.10		mysql密码'mimashi111'
+
+master2（slave）		 192.168.122.20		mysql密码'mimashi222'
+
+```bash
+master1,master2添加host解析：使用主机名进行访问
+[root@master1~]# vim /etc/hosts
+					192.168.122.10  master1
+					192.168.122.20  master2
+[root@master1~]# scp -r /etc/hosts master2:/etc	//将这个host文件拷贝给master2
+[root@master1~]# ping master2		//此时使用主机名ping就可以ping通了
+```
+
+第1步	master部署  [ master1 ]
+
+在master1上模拟出日常环境：
+
+```mysql
+create database bbs；
+create table bbs.t1(id int,name varchar(20));
+insert into bbs.t1 values (1,'yang'),(2,'wang');
+select * from bbs.t1;
+```
+
+```bash
+[root@master1~]# vim  /etc/my.cnf
+					log-bin
+					server-id=1		//打开log-bin，设置server-id
+[root@master1~]# systemctl restart mysqld
+[root@master1~]# systemctl stop firewalld	//关闭防火墙
+[root@master1~]# systemctl mask firewalld	//更狠关闭
+[root@master1~]# mysql -uroot -p'mimashi111'
+	mysql> grant replication slave,replication client on *.* to 'alice'@'192.168.122.20' identified by 'mimashi999';	//授权alice用户以'mimashi999'访问master1的mysql，注意这只是在mysql层面上的授权，而系统层面的授权也得做，如防火墙。因为从机是通过一个I/O线程从主机去拿日志，主机不能阻拦。 实际业务中，mysql都是部署在内网的，防火墙没必要开启。
+	mysql> flush privileges;
+[root@master1~]# mysqldump -p'mimashi111' --all-databases --single-transaction --master-data=1 --flush-logs > `date +%F`-mysql-all.sql  //复制主机数据文件，并以当天时间的年月日形式加-mysql-all.sql结尾生成文件。如2019-12-22-mysql-all.sql
+[root@master1~]# sed -n '22p' 2019-12-22-mysql-all.sql //查看生成的复制文件，第22行记录了binlog和position。这行如果没有注释掉，从机就可以自动读取binlog和position位置。
+[root@master1~]# scp -r 2019-12-22-mysql-all.sql master2:/backup //将复制的数据文件传给master2的/backup目录下
+到此，master1的任务大致完成。
+```
+
+master1模拟增加数据，该数据并未在复制数据中
+
+```mysql
+insert into bbs.t1 values (3,'zhou'),(4,'wu');
+select * from bbs.t1;
+```
+
+第2歩	slave部署   [ master2 ]
+
+```bash
+[root@master2~]# mysql -hmaster1 -ualice -p'mimashi999'	//测试授权的用户alice能否访问master1的mysql。如果拒绝访问要查看master1防火墙是否关闭，以及是否master1的mysql是否授权alice用户登录。
+mysql> show grants;		//查看alice用户的权限
+[root@master2~]# vim /etc/my.cnf   //配置server-id为2
+					server-id=2
+[root@master2~]# systemctl restart mysqld  //配置文件改完要重启mysqld
+[root@master2~]# ls /backup/  //查看复制文件传过来了没
+```
+
+```mysql
+接下来导入复制数据，这里最好采用mysql控制台导入，而非系统命令行导入
+进到mysql控制台进行暂停binlog再source恢复
+[root@master2~]# mysql -uroot -p'mimashi222'
+mysql> set sql_log_bin=0;	//暂停binlog
+mysql> source /backup/2019-12-22-mysql-all.sql
+mysql> change master to master_host='master1',  //配置连接主库
+					master_user='alice',
+					master_password='mimashi999' 
+					master_log_file=xxx	 //不写也行
+					master_log_pos=xxx	//采用从mysql控制台导入数据这种方式时，这两句不写也行。从机会自动读复制文件的第22行内容。但是要注意，该技巧只适用于mysql控制台导入数据，且第22行数据没被注释，使用系统命令行方式导入时则必须加上这两句。另外，如果是新库，即主机mysql还没有数据时，master_log_file=使用show master status\G看到的那个binlog文件，master_log_pos=0；
+mysql> start slave;		//启动从角色
+mysql> show slave status\G	//查看从角色是否启动成功，查看slave_io_running和slave_sql_running是否为yes
+
+这样设置过后，主机和从机的mysql已经完全同步了。包括mysql密码。主机的mysql有什么操作，从机就会有什么操作。但是不能反向操作，即从机进行mysql操作，主机不会随之改变。可以使用双主M-M实现反向操作。
+
+mysql> select * from bbs.t1; //此时t1已经和master1处的t1一模一样了，都是4条数据。
+```
+
+## M-S GTID
+
+流程：
+
+```mysql
+master：
+1.log-bin	server-id=1		gtid_mode=ON	enfroce_gtid_consistency=1 	restart
+2.grant replication
+3.初始化数据库	
+mysqldump all databases scp rsync ------> master2
+
+slave:
+1.server-id=2	
+gtid_mode=ON	
+enforce_gtid_consistency=1	
+master-info-repository=TABLE 			//这两句使连接主库的主机名、
+relay-log-info-repository=TABLE(slave)   //用户名、账号、密码等存储在一张表中，而非文件(/var/lib/mysql/master.info)中。特别是M-M-S-S时，建议写在表中。 
+2.初始化数据库	导入数据
+3.mysql> change master to
+			master_host='master1',
+			master_user='授权用户'，
+			master_password='授权密码'，
+			master_auto_position=1;  //与传统方式的差别
+4.mysql> start slave;
+5.mysql> show slave status\G
+```
+
+示例：
+
+master1（master）  	192.168.122.10		mysql密码'mimashi111'
+
+master2（slave）		 192.168.122.20		mysql密码'mimashi222'
+
+```bash
+master1,master2添加host解析：使用主机名进行访问
+[root@master1~]# vim /etc/hosts
+					192.168.122.10  master1
+					192.168.122.20  master2
+[root@master1~]# scp -r /etc/hosts master2:/etc	//将这个host文件拷贝给master2
+[root@master1~]# cat /etc/hosts		//查看host解析文件
+[root@master1~]# ping master2	 //此时使用主机名ping就可以ping通了
+```
+
+```bash
+master:master1部署
+[root@master1~]# mysql -uroot =p'mimashi111'
+mysql> grant replication slave,replication client *.* to 'alice'@'192.168.122.%' identified by 'mimashi999';
+mysql> flush peivileges;
+[root@master1~]# mysqldump -p'mimashi111' --all-databases --single-transcation --master-data=1 --flush-logs > `date +%F`-mysql-all.sql
+[root@master1~]# scp 2019-12-22-mysql-all.sql master2:/backup	
+```
+
+```bash
+slave：master2部署
+[root@master2~]# mysql -hmaster1 -ualice -p'mimashi999' //测试连接
+[root@master2~]# vim /etc/my.cnf
+				log-bin
+				server-id=2
+				gtid_mode=ON
+				enforce_gtid_consistency=1
+				master-info-repository=TABLE 
+				relay-log-info-repository=TABLE
+[root@master2~]# systemctl restart mysqld
+[root@master2~]# mysql -uroot -p'mimashi222' < /backup/2019-12-22-mysql-all.sql  //GTID方式，就不用了考虑导入数据的方式了，都行。因为GTID会自动去协商binlog和position。
+mysql> change master to 
+	>	master_host='master1',
+	>	master_user='alice',
+	>	master_password='mimashi999',
+	>	master_auto_position=1;
+mysql> start slave;
+mysql> show slave status\G
+[root@master2~]# systemctl restart mysqld		//这是密码更正为主机mysql密码了。
+```
+
+## M-M-S-S 	多源复制
+
+多源复制是5.7才兴起的。之前的是MHA技术，解决多主的问题。
+
+最好是在数据库安装的时候就操作，避免了数据的操作。
+
+M-M	GTID  双主模式，两个都可以对库进行操作，同时更新
+
+M-M-S-S	GTID	多源复制 ，使用两个频道或多个频道，一个频道坏了就用另外的。
+
+### M-M
+
+（master1<--->master2）：续上一实验
+
+```bash
+Master2：主机服务设置
+1.log-bin 	server-id=2		gtid_mode=ON	enforce_gtid_consistency=1	restart  //上一示例已设置
+
+2.master1和master2数据已经一致		//上一示例已设置
+
+3.给master1授权，由于之前针对用户alice授权是网段授权'alice'@'192.168.122.%'，所以也不用更改设置。
+如果之前针对的具体IP授权，那么master2对master1授权也要在master1上进行授权，注意！也是在master1上授权。因为此时master1是作为主机，master2是从机，要想同步，还得从主机上设置，然后从机master2才能同步授权数据。因为主从机模式是单向的，只能从主同步到从，而不能反过来。
+```
+
+```mysql
+master1:从机服务设置
+mysql> change master to
+	> master_host='master2',
+	> master_user='alice',
+	> master_password='mimashi999',
+	> master_auto_position=1;
+mysql> start slave
+mysql> show slave status\G
+```
+
+### M-M-S-S
+
+续上一实验
+
+master1（master）  	192.168.122.10		    mysql密码'mimashi111'
+
+master2（master）		 192.168.122.20		  mysql密码'mimashi222'
+
+slave1（slave）			192.168.122.30			mysql密码'mimashi333'
+
+slave2（slave）			192.168.122.40			mysql密码'mimashi444'
+
+```bash
+master1,master2,slave1,slave2添加host解析：使用主机名进行访问
+[root@master1~]# vim /etc/hosts
+					192.168.122.10  master1
+					192.168.122.20  master2
+					192.168.122.30	slave1
+					192.168.122.40	slave2
+[root@master1~]# scp -r /etc/hosts master2:/etc	//将这个host文件拷贝给master2
+[root@master1~]# scp -r /etc/hosts slave2:/etc	//将这个host文件拷贝给slave1
+[root@master1~]# scp -r /etc/hosts slave2:/etc	//将这个host文件拷贝给slave2
+[root@master1~]# cat /etc/hosts		//查看host解析文件
+[root@master1~]# ping master2	 //此时使用主机名ping就可以ping通了
+```
+
+```bash
+master1/master2:
+初始化数据库，保证m1，m2，s1，s2数据一致，此时m1和m2数据已经一致，都是主机。把数据库整个备份，分别拷给s1和s2。该操作也可在m2上做。
+[root@master1~]# mysqldump -p'mimashi111' --all-databases --single-transcation --master-data=2 --flush-logs >`data +%F`-mysql-all.sql
+[root@master1~]# scp -r 2019-12-22-mysql-all-sql slave1:/root
+[root@master1~]# scp -r 2019-12-22-mysql-all-sql slave2:/root
+[root@master1~]# mysql -uroot -p'mimashi111'
+	mysql> reset master;  	//删除binlog，否则日志会和slave1和slave2的数据冲突,导致GTID协商不了，slave1和slave2的I/O服务打不开。
+
+slave1:
+[root@slave1~]# mysql -p'mimashi333' < 2019-12-22-mysql-all.mysql
+[root@slave1~]# vim /etc/my.cnf
+				server-id=3
+				gtid_mode=ON
+				enforce_gtid_consistency=1
+				master-info-repository=TABLE
+				relay-log-info-repository=TABLE
+[root@slave1~]# systemctl restart mysqld //此时继承master1的mysql密码了
+[root@slave1~]# mysql -uroot -p'miamshi111'
+	mysql> reset master;		//清除二进制日志binlog
+	mysql> change master to  //如果一开始在主机处是对单个IP授权，那么要在主机处授四次权。如果是对网段授权，只需要授一次权。
+		> master_host='master1',
+		> master_user='alice',
+		> master_password='mimashi999'
+		> master_auto_position=1 for channel 'alice-master1';//名为alice-master1的频道
+	mysql> change master to 
+		> master_host='master2',
+		> master_user='alice',
+		> master_password='mimashi999'
+		> master_auto_position=1 for channel 'alice-master2';
+	mysql> start slave;
+	mysql> show slave status\G
+	
+slave2:
+[root@slave2~]# mysql -p'mimashi444' < 2019-12-22-mysql-all.mysql
+[root@slave2~]# vim /etc/my.cnf
+				server-id=4
+				gtid_mode=ON
+				enforce_gtid_consistency=1
+				master-info-repository=TABLE
+				relay-log-info-repository=TABLE
+[root@slave2~]# systemctl restart mysqld  //此时继承master1的mysql密码了
+[root@slave2~]# mysql -uroot -p'miamshi111'
+	mysql> reset master;		//清除二进制日志binlog
+	mysql> change master to  
+		> master_host='master1',
+		> master_user='alice',
+		> master_password='mimashi999'
+		> master_auto_position=1 for channel 'alice-master1';
+	mysql> change master to 
+		> master_host='master2',
+		> master_user='alice',
+		> master_password='mimashi999'
+		> master_auto_position=1 for channel 'alice-master2';
+	mysql> start slave;
+	mysql> show slave status\G
+```
+
+
 
