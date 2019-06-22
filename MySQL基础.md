@@ -2390,5 +2390,59 @@ slave2:
 	mysql> show slave status\G
 ```
 
+# MySQL中间件
+
+MySQL Proxy	MySQL官方
+
+Atlas					奇虎360
+
+DBProxy				美团
+
+Amoeba				早期阿里
+
+cober					阿里
+
+Mycat					阿里
+
+mycat 基于java开发的，要先配置java环境。
+
+## JAVA环境配置
+
+```bash
+搜索jdk，选择bin.tar.gz安装，不需要编译，只需要下载解压就ok，一般下载解压后都需要配置环境变量，而rpm包安装不用配置。
+[root@mycat~] wget https://download.oracle.com/otn-pub/java/jdk/12.0.1+12/69cfe15208a647278a19ef0990eea691/jdk-12.0.1_linux-x64_bin.tar.gz?AuthParam=1561163766_f9ccf5b744e09a80056c96ef543c26de
+[root@mycat~] tar -xf jdk-12.0.1_linux-x64_bin.tar.gz?AuthParam=1561163766_f9ccf5b744e09a80056c96ef543c26de -C /usr/local/
+[root@mycat~] ls /usr/local   	//会出现jdk12.0.1的目录，目录名太长影响使用，做个链接
+[root@mycat~] ln -s /usr/local/jdk12.0.1   /usr/local/java //将解压目录做个链接，相当于java目录装在/usr/local/java
+[root@mycat~] vim /root/.bash_profile		//配置java_home环境变量,有些是针对对应用户下的.bash_profile或.profile进行更改，或者/etc/profile。这里我用的是RHEL7，修改/etc/profile之后，linux的命令全都不能用了，更改/root/.bash_profile则没有问题
+				JAVA_HOME=/usr/local/java
+				PATH=$JAVA_HOME/bin:$PATH  //这里JAVA_HOME在前，意思是我安装的这个java应该被优先选择。系统中安装的java版本可能会低
+				export JAVA_HOME PATH
+[root@mycat~] source /etc/profile	
+[root@mycat~] echo $JAVA_HOME		//查看当前环境变量中有没有JAVA
+		JAVA_HOME=/usr/local/java
+[root@mycat~] java -version		//查看java版本是否为需要的版本
+```
+
+## Mycat配置
+
+```bash
+下载下来后同样不用编译，解压直接使用
+[root@mycat~] wget http://dl.mycat.io/1.6.6.1/Mycat-server-1.6.6.1-release-20181031195535-linux.tar.gz
+[root@mycat~] 
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
