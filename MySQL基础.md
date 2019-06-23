@@ -2531,9 +2531,41 @@ switchType属性：
 
 3.当只有一个writeHost时，同时负责读写。
 
+**M-M-S-S	准备Mycat连接的用户及权限**
 
+192.168.122.234	为Mycat主机IP
 
+```bash
+将DHCP解析文件拷给Mycat：
+[root@master1 ~] scp -r /etc/hosts 192.168.122.234:/etc
+```
 
+```mysql
+先在mysql上授权Mycat能使用的用户，随便哪个master主机都行,这里在master1上进行授权:
+mysql> grant all on bbs.* to 'jack'@'192.168.122.234' identified by 'mimashijack123';  //最好是针对特定业务所用到的库授权，比如bbs，而非*.*
+mysql> flush privileges;
+```
+
+```bash
+在Mycat上测试能不能连接到master、slave的mysql（Mycat上装个mysql-client或mariaDB）：
+[root@mycat ~] mysql -hmaster1 -ujack -p'mimashijack123'
+mysql> show grants;		//查看授权
+[root@mycat ~] mysql -hmaster2 -ujack -p'mimashijack123'
+[root@mycat ~] mysql -hslave1 -ujack -p'mimashijack123'
+[root@mycat ~] mysql -hslave2 -ujack -p'mimashijack123'
+
+接下来启动Mycat：
+[root@mycat ~] /usr/local/mycat/bin/mycat start
+[root@mycat ~] ss -tnlp |grep java	//查看有没有java进程，有，mycat才启动成功
+[root@mycat ~] jps	//或使用java的jps查看java进程
+[root@mycat ~] ps aux |grep mycat	//或直接查看有没有mycat进程
+Mycat启动没成功基本上是配置文件的语法问题，这时候先查看生成的日志文件进行排错：
+[root@mycat ~] ls /usr/local/mycat/logs/
+	mycat.log	wrapper.log
+[root@mycat ~] tail /usr/local/mycat/logs/mycat.log 
+[root@mycat ~] tail /usr/local/mycat/logs/wrapper.log
+第62集末尾几分钟排错。
+```
 
 
 
