@@ -2429,14 +2429,107 @@ mycat 基于java开发的，要先配置java环境。
 ```bash
 下载下来后同样不用编译，解压直接使用
 [root@mycat~] wget http://dl.mycat.io/1.6.6.1/Mycat-server-1.6.6.1-release-20181031195535-linux.tar.gz
-[root@mycat~] 
+[root@mycat~] tar -xf Mycat-server-1.6.6.1-release-20181031195535-linux.tar.gz -C /usr/local/
+[root@mycat~] ls /usr/local/mycat/
+	bin catlet	lib	logs	verdion.txt
+[root@mycat~] ls /usr/local/mycat/bin/	//mycat的启动相关命令
+[root@mycat~] ls /usr/local/mycat/conf/		//配置文件位置
+		server.xml	schema.xml	主要用这两个文件
+[root@mycat~] ls /usr/local/mycat/logs/		//日志文件，正常运行以后会产生相应日志
 ```
 
+``[root@mycat~] vim /usr/local/macat/conf/server.xml		//打开server.xml文件，进行配置：`
 
+```xml
+<user name='root'>	这个是前端应用程序去连接中间件Mycat的账户，是中间件Mycat设置的
+		<poperty name='password'>123456</property>	//密码是123456
+		<poperty name='schema'>muzi_1</property> //定义能访问的数据库名称，任意取名，但是要和schema.xml中配置的名称对应，建议取数据库名称。
+    在前端应用使用root这个用户访问时，Mycat会去找这个名为muzi的schema在/schema.xml中配置的各项内容。
+<user name='root1'>	//另一个账户
+		<poperty name='password'>123456</property>	
+		<poperty name='schema'>muzi_2</property> //Mycat会去找muzi_2这个schema的配置。
+```
 
+`[root@mycat~] vim /usr/local/macat/conf/schema.xml		//打开schema.xml文件，进行配置`：
 
+```xml
+<?xml version="1.0"?>
+<!DOCTYPE mycat:schema  SYSTEM "schema.dtd">
+<mycat:schema xmlns:mycat="http://io.macat/">
+	<schema name="muzi_1"  
+		checkSQLschema="false" 		//检测数据库schema。
+		sqlMaxLimit="100" 			//sqlMaxLimit最大连接数。
+		dataNode="dn1" //dataNode数据节点，名称任取，下一段进行配置。
+	>
+	</schema>
+	<dataNode name="dn1" 
+		dataHost="host_pool" //	可连接的主机池,名称任取，下一段进行配置。
+		database="my_true_database" //database--连接的真实数据库名。
+	>
+	<dataHost name="host_pool"
+		maxCon="1000"			//最大连接数
+		minCon="10" 			//最小连接数
+		balance="0" 			//负载均衡设置
+		writeType="0" dbType="mysql" dbDriver="native" 	switchType="1" 	slaveThreshold="100"	
+	>	
+			<heartbeat>select user()</heartbeat>	//心跳检测。检测连接的数据库主机是否能正常工作，任意语句都可以。
+			<writeHost host="master1" url="master1:3306" user="jack" password="mimashijack123"> //写主机设置。hostM1名称任取，建议真机名。url是真正的地址，建议不要用ip地址，使用DHCP名称解析。writeHost是写操作主机，所以user字段设置为可以对数据库进行写操作的用户，尽量配置一个专门的用户授相应的权。这里使用jack用户，对其进行写授权。注意这里的用户，是中间件Mycat访问数据库的用户，是MySQL设置的。
+			<readHost host="slave1" url="192.168.1.200:3306" user="jack" password="mimashijack123" /> //读主机设置。slave1名称任取，建议真机名。url是真正的地址，建议不要用ip地址，使用DHCP名称解析。这里同样使用jack用户进行访问控制，要对jack这个用户进行读授权。
+			<readHost host="slave2" url="slave2:3306" user="jack" password="mimashijack123" /> //第二个读主机。
+			</writeHost>
+        
+			<writeHost host="master2" url="master2:3306" user="jack" password="mimashijack123"> //定义第二个写主机。
+			<readHost host="slave1" url="192.168.1.200:3306" user="jack" password="mimashijack123" /> //第二个写主机的第一个读主机。
+			<readHost host="slave2" url="slave2:3306" user="jack" password="mimashijack123" /> //第二个写主机的第二个读主机。
+			</writeHost>
+	</dataHost>
+	
+	<schema name="muzi_2" checkSQLschema="false" sqlMaxLimit="100" dataNode="dn1"></schema>  //名为muzi_2的schema，定义了要去访问的数据节点，以及一些访问规则。
+	<dataNode name="dn1" dataHost="host_pool" database="my_true_database"> //数据节点，定义了要去访问的主机池，以及一些访问规则。
+	<dataHost name="host_pool" maxCon="1000" minCon="10" balance="0" writeType="0" dbType="mysql" dbDriver="native"  switchType="1" slaveThreshold="100">	//主机池，定义了可去访问的各项主机，以及一些访问规则。
+		<heartbeat>select user()</heartbeat>//定义了检测主机健康状态的方法。
+		<writeHost host="master1" url="master1:3306" user="jack" password="mimashijack123"> 
+		<readHost host="slave1" url="192.168.1.200:3306" user="jack" password="mimashijack123" /> 
+		<readHost host="slave2" url="slave2:3306" user="jack" password="mimashijack123" />
+		</writeHost>
+        
+		<writeHost host="master2" url="master2:3306" user="jack" password="mimashijack123"> 
+		<readHost host="slave1" url="192.168.1.200:3306" user="jack" password="mimashijack123" /> 
+		<readHost host="slave2" url="slave2:3306" user="jack" password="mimashijack123" />
+		</writeHost>
+	</dataHost>        
+</mycat:schema>
+```
 
+`<dataHost>标签内的一些属性规则：`
 
+balance属性：负载均衡类型。
+
+​				="0"，不开启读写分离机制，所有操作都发送到当前可用的writeHost上。
+
+​				="1"，全部的readHost 和 stand by writeHost 参与select 语句的负载均衡，简单的说，当双主机从模式（M1->S1，M2->S2，并且M1,M2互为主备），正常情况下，M2，S1，S2都参与select语句的负载均衡。开启读写分离机制，所有读操作都发送到当前可用的writeHost上。
+
+​				="2"，所有读操作都随机地分发到writeHost、readHost上。
+
+​				="3"，所有读请求随机地分发到writerHost对应的readHost执行，writeHost不负担读压力，注意balance=3只在1.4及以后版本有。
+
+writeType属性：负载均衡类型。
+
+​				="0"，所有写操作发送到配置的第一个writeHost，第一个挂了切到还生存的第二个writeHost，重新启动后以切换后的为准。
+
+​				="1"，所有写操作都随机地发送到配置的writeHost，1.5以后已废弃，不推荐。
+
+switchType属性：
+
+​				="3"，基于MySQL Galera Cluster的切换机制，心跳语句为show status like 'wsrep%'
+
+**结论：**
+
+1.所有节点都正常，writeHost负责写操作，备writeHost负责读操作。
+
+2.当第一个writeHost失效时，其中一个备的writeHost负责写操作，其他备的writeHost负责读操作。
+
+3.当只有一个writeHost时，同时负责读写。
 
 
 
