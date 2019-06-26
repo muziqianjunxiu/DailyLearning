@@ -80,7 +80,7 @@
 
 `eg：`
 
-```
+```mysql
 create table t_booktype(
 	id 	int primary key  auto_increment,
 	booktypename	varchar(20),
@@ -96,21 +96,15 @@ create table t_book(
 );
 ```
 
-
-
-`describe/desc  my_table`		查看表my_table
-
-`show	create	table 	my_table`		查看表my_table
-
-`alter  table  my_table_old  rename  my_table_new;`		将表名my_table_old改为my_table_new
-
-`alter	table  my_table  change  旧字段名   新字段名   新数据类型`		修改字段
-
-`alter  table  my_table  add  字段名1  数据类型  [约束] [FIRST | AFTER  字段名2]`	增加字段
-
-`alter  table  my_table  drop  字段名`			删除字段 
-
-`drop  table  my_table`		删除表my_table
+```mysql
+describe/desc  my_table		查看表my_table
+show	create	table 	my_table		查看表my_table
+alter  table  my_table_old  rename  my_table_new;		将表名my_table_old改为my_table_new
+alter	table  my_table  change  旧字段名   新字段名   新数据类型		修改字段
+alter  table  my_table  add  字段名1  数据类型  [约束] [FIRST | AFTER  字段名2]	增加字段
+alter  table  my_table  drop  字段名			删除字段 
+drop  table  my_table		删除表my_table
+```
 
 # MySQL数据类型
 
@@ -144,35 +138,27 @@ DATA	TIME	DATATIME	TIMESTAMP	YEAR
 
 # 显示表的创建操作细节：
 
-​		`show  create table  my_tab\G`
-
-​		`show  create  table  my_tab\g  = show create table  my_tab;` 
+```mysql
+show  create table  my_tab\G
+show  create  table  my_tab\g  = show create table  my_tab; 
+```
 
 # 创建外键
 
-`create table employees(`
-
-`name varchar(50)  not null,`
-
-`mail  varchar(20) not null,`
-
-`primary key(name)`
-
-`);`
-
-`create tabel payroll(`
-
-`id  int not null  auto_increment,`
-
-`name varchar(20),`
-
-`payroll float(10,2) not null,`
-
-`primary key(id),`
-
-`foreign key(name)  references employees(name) on update cascade on delete cascade`		同步更新  同步删除
-
-`);`
+```mysql
+create table employees(
+name varchar(50)  not null,
+mail  varchar(20) not null,
+primary key(name)
+);
+create tabel payroll(
+id  int not null  auto_increment,
+name varchar(20),
+payroll float(10,2) not null,
+primary key(id),
+foreign key(name)  references employees(name) on update cascade on delete cascade		同步更新  同步删除
+);
+```
 
 # MySQL表操作  DDL
 
@@ -184,11 +170,11 @@ DATA	TIME	DATATIME	TIMESTAMP	YEAR
 
 ### 增加字段add
 
-`alter table  t1  add  字段名   数据类型   完整性约束条件，add  字段名  数据类型  完整性约束条件`
-
-`alter  table  t1  add  字段名  数据类型  完整性约束条件   first；`//添加到最前面
-
-`alter  table   t1  add   字段名  数据类型  完整性约束条件  after  字段名;`
+```mysql
+alter table  t1  add  字段名   数据类型   完整性约束条件，add  字段名  数据类型  完整性约束条件
+alter  table  t1  add  字段名  数据类型  完整性约束条件   first；//添加到最前面
+alter  table   t1  add   字段名  数据类型  完整性约束条件  after  字段名;
+```
 
 ### 删除字段drop
 
@@ -2390,7 +2376,7 @@ slave2:
 	mysql> show slave status\G
 ```
 
-# MySQL中间件
+# MySQL中间件  Mycat
 
 MySQL Proxy	MySQL官方
 
@@ -2438,7 +2424,7 @@ mycat 基于java开发的，要先配置java环境。
 [root@mycat~] ls /usr/local/mycat/logs/		//日志文件，正常运行以后会产生相应日志
 ```
 
-``[root@mycat~] vim /usr/local/macat/conf/server.xml		//打开server.xml文件，进行配置：`
+`[root@mycat~] vim /usr/local/macat/conf/server.xml		//打开server.xml文件，进行配置：`
 
 ```xml
 <user name='root'>	这个是前端应用程序去连接中间件Mycat的账户，是中间件Mycat设置的
@@ -2566,6 +2552,339 @@ Mycat启动没成功基本上是配置文件的语法问题，这时候先查看
 [root@mycat ~] tail /usr/local/mycat/logs/wrapper.log
 第62集末尾几分钟排错。
 ```
+
+# MySQL集群  Galera
+
+mysql cluster 是mysql官方的集群应用，但是不好用。
+
+## Galera Replication 
+
+这种集群数据是留在本地的，没有借助第三方存储。实际上也是一种复制，这种复制使得每一个节点都有读和写的功能。
+
+### 安装Galera
+
+http：//galeracluster.com
+
+要给mysql增加补丁，才能使用，（Galera replication library）。或直接下载包含了补丁的MySQL版本（Mysql 5.7 server extend with the Write Set Replication (WSPER) API）。
+
+本实验采用四个节点：
+
+galera1		192.168.122.111
+
+galera2		192.168.122.112
+
+galera3		192.168.122.113
+
+galera4		192.168.122.114
+
+```bash
+停掉防火墙
+[root@garela1 ~] systemctl stop firewalld  
+[root@garela1 ~] systemctl disable fireabled
+[root@garela2 ~] systemctl stop firewalld  
+[root@garela2 ~] systemctl disable fireabled
+[root@garela3 ~] systemctl stop firewalld  
+[root@garela3 ~] systemctl disable fireabled
+[root@garela4 ~] systemctl stop firewalld  
+[root@garela4 ~] systemctl disable fireabled
+
+DHCP解析设置
+[root@galera1 ~] vim /etc/hosts	
+					192.168.122.111	garela2		
+					192.168.122.222	garela2		
+					192.168.122.333	garela3		
+					192.168.122.444	garela4	
+                      192.168.122.555 mycat
+[root@glera1 ~] for i in {2..4}; do scp -r /etc/hosts galera$i:/etc;  //将DHCP配置文件拷给其他三台机器。
+[root@glera1 ~] scp -r /etc/hosts mycat:/etc;  
+```
+
+```bash
+新建一个yum源：
+[root@galera1 ~] vim /etc/yum.repos.d/galera.repo
+	[galera]
+	name=galera
+	baseurl=http://releases.galeracluster.com/mysql-wsrep-5.7/centos/7/x86_64/
+	gpgcheck=0
+本次实验，打算装4个galera节点，因为包挺大的，为了节约带宽，我们这里将其缓存下来，然后做成本地的一个yum源，使其他三个节点直接从该机下载。缓存设置：
+[root@galera1 ~]vim /etc/yum.conf  	//将keepcache设置为1即可
+[root@galera1 ~] yum repolist	//列出可用的仓库
+[root@galera1 ~] yum list |egrep 'wresp|galera'  //或过滤一下包含wresp或galera字段的包
+[root@galera1 ~] yum -y install mysql-wsrep-5.7.x86_64 galera.x86_64   //注意，这里相当于是又安装了一个打了galera补丁的mysql客户端，mysql自己的那个客户端不支持galera服务，也可以直接在mysql自己的客户端上打补丁使用。我们这里是直接用的galera提供的打了补丁的mysql客户端，技术由mariadb支持。
+[root@galera1 ~] mkdir galera   //新建一个文件夹
+[root@galera1 ~] find /var/cache/yum/x86_64/7/ -iname "*.rpm" -exec cp -a {} galera \;	//将缓存下来的包，全部存放到garela这个文件夹内
+[root@galera1 ~] ls galera/   //查看galera文件夹，里面应该有相应的包了
+[root@galera1 ~] yum -y install vsftpd createrepo  //安装vsftpd服务，和createrepo创建yum源
+[root@galera1 ~] cp -r galera /var/ftp/   //将其拷到/var/ftp文件夹下 
+[root@galera1 ~] createrepo /var/ftp/galera/   //这样的话，它就是一个yum仓库了
+[root@galera1 ~] ls /var/ftp/galera/   //注意看，文件夹中新生成了一个文件夹叫repodata，表明garela/已经是一个yum仓库了
+[root@garela1 ~] systemctl start vsftpd   //启动vsftpd服务
+[root@garela1 ~] systemctl enable vsftpd  //开机自启
+
+garela2配置本地yum源并拷给garela3和garelaa4：
+[root@garela2 ~] vim /etc/yum.repos.d/garela.repo
+					[garela]
+					name=garela
+					baseurl=ftp://garela1/garela
+					gpgcheck=0
+[root@garela2 ~] scp -r /etc/yum.repos.d/garela.repo  garela3:/etc/yum.repos.d/		//拷给garela3和garela4
+[root@garela2 ~] scp -r /etc/yum.repos.d/garela.repo  garela4:/etc/yum.repos.d/	
+
+安装客户端：
+[root@garela2 ~] yum -y install mysql-wsrep-5.7.x86_64 garela.x86_64   //这时候就不是从garela的官方yum源下载安装了，而是从我们本地刚刚在garela1上搭建的仓库源。
+[root@garela3 ~] yum -y install mysql-wsrep-5.7.x86_64 garela.x86_64   
+[root@garela4 ~] yum -y install mysql-wsrep-5.7.x86_64 garela.x86_64  
+
+启动mysql服务：
+[root@garela1 ~] systemctl start mysqld //开启mysql
+[root@garela1 ~] systemctl enable mysqld
+[root@garela2 ~] systemctl start mysqld //开启mysql
+[root@garela2 ~] systemctl enable mysqld
+[root@garela3 ~] systemctl start mysqld //开启mysql
+[root@garela3 ~] systemctl enable mysqld
+[root@garela4 ~] systemctl start mysqld //开启mysql
+[root@garela4 ~] systemctl enable mysqld
+
+修改临时密码：
+[root@garela1 ~] newpass= `grep 'temporary password' /var/log/mysql.log |awk '{print $NF}'`   //查看mysql临时密码并赋值给newpass变量
+[root@garela1 ~] mysqladmin -p"$newpass" password 'mimashigarela1'  //修改密码
+[root@garela2 ~] newpass= `grep 'temporary password' /var/log/mysql.log |awk '{print $NF}'`  
+[root@garela2 ~] mysqladmin -p"$newpass" password 'mimashigarela2'
+[root@garela3 ~] newpass= `grep 'temporary password' /var/log/mysql.log |awk '{print $NF}'`  
+[root@garela3 ~] mysqladmin -p"$newpass" password 'mimashigarela3'
+[root@garela4 ~] newpass= `grep 'temporary password' /var/log/mysql.log |awk '{print $NF}'` 
+[root@garela4 ~] mysqladmin -p"$newpass" password 'mimashigarela4'
+```
+
+```mysql
+创建用于数据同步的用户：
+garela1:
+grant all *.* to 'mike'@'192.168.122.%' identified by 'mimashimike123';
+flush privileges;
+garela2:
+grant all *.* to 'mike'@'192.168.122.%' identified by 'mimashimike123';
+flush privileges;
+garela3:
+grant all *.* to 'mike'@'192.168.122.%' identified by 'mimashimike123';
+flush privileges;
+garela4:
+grant all *.* to 'mike'@'192.168.122.%' identified by 'mimashimike123';
+flush privileges;
+```
+
+### 配置Galera 
+
+```bash
+garela1配置：
+[root@garela1 ~] ls /usr/lib64/garela  //查看garela提供服务的文件位置
+[root@garela1 ~] vim /etc/my.cnf    //编辑配置文件，添加配置
+        symbolic-links=0
+
+        log-error=/var/log/mysqld.log
+        pid-file=/var/run/mysqld/mysqld.pid
+		//可选参数
+        server-id=1
+        binlog_format=row
+        default_storage_engine=InnoDB
+        innodb_file_per_table=1
+        innodb_autoinc_lock_mode=2
+		//集群的参数
+        wsrep_on=ON
+        wsrep_provide=/usr/lib64/garela-3/libgarela_smm.so
+        wsrep_cluster_name='gala'  //	给集群取个名字gala
+        wsrep_cluster_address='gcomm://'  //gala集群通讯的引荐机地址。如果不写明确的地址，就表示是一个新集群，这个集群就一个只有该机自己一个。该机是开天辟地的第一个。这里我们这样设置的结果是：加入garela1重启，那么garela1会重新创建一个集群，节点只有它自己一个，而其他三个则还是之前的集群里的节点，不包含garela1。解决办法是将这句改为：wresp_cluster_address='gcomm://garela2,garela3,garela3'，即加入引荐机，再重启服务即可。
+        wsrep_node_name='garela1'  /该节点加入到这个集群中使用的名字
+        wsrep_node_address='192.169.122.111' //该节点的地址
+        wsrep_sst_auth=mike:mimashimike123  //认证的账号及密码
+        wsrep_sst_method=rsync  //复制数据的方式是rsync
+[root@garela1 ~] systemctl restart mysqld  //这个时候除了常规的3306数据库端口外，还会启动4567这个集群通讯的端口。
+[root@garela1 ~] ss -tnlp |egrep '3306|4567'  //查看端口是否正常启动
+[root@garela1 ~] mysql -umike -p"mimashimike123"  //登录mysql
+	mysql>  show status like 'wresp%';	//查看集群状态参数
+其中有几个重要的参数：
+	wresp_cluster_conf_id  =1  每次集群发生变化的时候，该值会发生变化
+	wresp_cluster_size     =1  集群大小为1
+	wresp_cluster_status   =Primary	状态
+	wresp_incoming_address	192.168.122.111:3306	加入这个集群的地址
+	wresp_local_state_comment Synced	数据同步状态
+[root@garela1 ~] for i in{2..4}	; do scp -r /etc/my.cnf garela$i:/etc; done  //将配置文件拷贝给garela2，garela3，garela4，再在各自的机器上将配置文件略微改动。或者我们直接重新配置，这里我们为了进行区分，重新进行配置
+
+garela2配置：
+[root@garela2 ~] vim /etc/my.cnf   
+        symbolic-links=0
+
+        log-error=/var/log/mysqld.log
+        pid-file=/var/run/mysqld/mysqld.pid
+
+        server-id=2
+        binlog_format=row
+        default_storage_engine=InnoDB
+        innodb_file_per_table=1
+        innodb_autoinc_lock_mode=2
+
+        wsrep_on=ON
+        wsrep_provide=/usr/lib64/garela-3/libgarela_smm.so
+        wsrep_cluster_name='gala'  
+        wsrep_cluster_address='gcomm://garela1,garela3,garela4'  //引荐机
+        wsrep_node_name='garela2' 
+        wsrep_node_address='192.169.122.222'
+        wsrep_sst_auth=mike:mimashimike123  
+        wsrep_sst_method=rsync  
+[root@garela2 ~] systemctl restart mysqld
+[root@garela2 ~] ss -tnlp |egrep '3306|4567'  //因为这个|是扩展字符，所以要是用egrep
+这个时候再进入mysql，show status like 'wresp%';  //变化如下：
+	wresp_incoming_address =192.168.122.111:3306 192.168.122.222:3306
+	wresp_cluster_conf_id  =2  
+	wresp_cluster_size     =2 
+
+garela3配置：
+[root@garela3 ~] vim /etc/my.cnf   
+        symbolic-links=0
+
+        log-error=/var/log/mysqld.log
+        pid-file=/var/run/mysqld/mysqld.pid
+
+        server-id=3
+        binlog_format=row
+        default_storage_engine=InnoDB
+        innodb_file_per_table=1
+        innodb_autoinc_lock_mode=2
+
+        wsrep_on=ON
+        wsrep_provide=/usr/lib64/garela-3/libgarela_smm.so
+        wsrep_cluster_name='gala'  
+        wsrep_cluster_address='gcomm://garela1,garela2,garela4' 
+        wsrep_node_name='garela3' 
+        wsrep_node_address='192.169.122.333'
+        wsrep_sst_auth=mike:mimashimike123  
+        wsrep_sst_method=rsync  
+[root@garela3 ~] systemctl restart mysqld
+[root@garela3 ~] ss -tnlp |egrep '3306|4567' 
+同样的，再进入mysql，show status like 'wresp%';  //变化如下：
+	wresp_incoming_address =192.168.122.111:3306 192.168.122.222:3306 192.168.122.333：3306
+	wresp_cluster_conf_id  =3  
+	wresp_cluster_size     =3  
+
+garela4配置：
+[root@garela4 ~] vim /etc/my.cnf   
+        symbolic-links=0
+
+        log-error=/var/log/mysqld.log
+        pid-file=/var/run/mysqld/mysqld.pid
+
+        server-id=4
+        binlog_format=row
+        default_storage_engine=InnoDB
+        innodb_file_per_table=1
+        innodb_autoinc_lock_mode=2
+
+        wsrep_on=ON
+        wsrep_provide=/usr/lib64/garela-3/libgarela_smm.so
+        wsrep_cluster_name='gala'  
+        wsrep_cluster_address='gcomm://garela1,garela2,garela3' 
+        wsrep_node_name='garela4' 
+        wsrep_node_address='192.169.122.444'
+        wsrep_sst_auth=mike:mimashimike123  
+        wsrep_sst_method=rsync  
+[root@garela4 ~] systemctl restart mysqld
+[root@garela4 ~] ss -tnlp |egrep '3306|4567' 
+同样的，再进入mysql，show status like 'wresp%';  //变化如下：
+	wresp_incoming_address =192.168.122.111:3306 192.168.122.222:3306 192.168.122.333：3306 192.168.122.444：3306
+	wresp_cluster_conf_id  =4  
+	wresp_cluster_size     =4  
+```
+
+### 搭建Mycat
+
+mycat		192.168.122.555
+
+#### java环境配置
+
+```bash
+[root@mycat ~] wget https://download.oracle.com/otn-pub/java/jdk/12.0.1+12/69cfe15208a647278a19ef0990eea691/jdk-12.0.1_linux-x64_bin.tar.gz?AuthParam=1561163766_f9ccf5b744e09a80056c96ef543c26de
+[root@mycat ~] tar -xf jdk-12.0.1_linux-x64_bin.tar.gz?AuthParam=1561163766_f9ccf5b744e09a80056c96ef543c26de -C /usr/local/
+[root@mycat ~] ls /usr/local 
+[root@mycat ~] ln -s /usr/local/jdk12.0.1   /usr/local/java
+[root@mycat ~] vim /root/.bash_profile	
+				JAVA_HOME=/usr/local/java
+				PATH=$JAVA_HOME/bin:$PATH 
+				export JAVA_HOME PATH
+[root@mycat ~] source /etc/profile	
+[root@mycat ~] echo $JAVA_HOME
+		JAVA_HOME=/usr/local/java
+[root@mycat ~] java -version	
+```
+
+#### mycat访问数据库用户授权 
+
+```bash
+随便在集群中的哪个主机上对mycat机器进行bbs库授权，这里使用garela1：
+[root@garela1 ~] mysql -umike -p"mimashimike123" 
+	mysql> grant all on bbs.* to 'mymy'@'192.168.122.555' identified by 'mimashimymy123';
+	mysql> flush privileges;
+```
+
+#### mycat配置
+
+下载安装mycat：
+
+```bash
+[root@mycat~] wget http://dl.mycat.io/1.6.6.1/Mycat-server-1.6.6.1-release-20181031195535-linux.tar.gz
+[root@mycat~] tar -xf Mycat-server-1.6.6.1-release-20181031195535-linux.tar.gz -C /usr/local/
+```
+
+配置server.xml
+
+`[root@mycat~] vim /usr/local/macat/conf/server.xml`	
+
+```xml
+<user name='mymy'>
+		<poperty name='password'>mimashimymy123</property>	
+		<poperty name='schema'>bbs_schema</property> 
+```
+
+配置schema.xml：
+
+`[root@mycat~] vim /usr/local/macat/conf/schema.xml`
+
+```xml
+<?xml version="1.0"?>
+<!DOCTYPE mycat:schema  SYSTEM "schema.dtd">
+<mycat:schema xmlns:mycat="http://io.macat/">
+	<schema name="bbs_schema"  checkSQLschema="false" 	sqlMaxLimit="100"  dataNode="dn1"></schema>
+	<dataNode name="dn1"  dataHost="host_pool"  database="bbs"/>
+	<dataHost name="host_pool" maxCon="1000" minCon="10"  balance="0" 	 writeType="0" dbType="mysql" dbDriver="native"  switchType="1" slaveThreshold="100">	
+		<heartbeat>show status like 'wsrep%'</heartbeat>	
+		<writeHost host="master1" url="galera1:3306" user="mycat_user" password="mimashimycat123"></writeHost>
+        <writeHost host="master2" url="galera2:3306" user="jack" password="mimashijack123"></writeHost>
+        <writeHost host="master3" url="galera3:3306" user="mycat_user" password="mimashimycat123"></writeHost>
+        <writeHost host="master4" url="galera4:3306" user="jack" password="mimashijack123"></writeHost>
+	</dataHost>   
+</mycat:schema>
+```
+
+启动mycat：
+
+```bash
+[root@mycat ~] jps		//查看Java进程
+[root@mycat ~] /usr/local/mycat/bin/mycat start
+[root@mycat ~] ps -aux |grep java
+[root@mycat ~] ss -tnlp |grep java	查看java端口
+```
+
+balance=1	开启读写分离机制，所有读操作都发送到当前备用的writehost上。
+
+writetype=0 	所有写操作发送到第一个writehost，第一个挂了切换到第二个
+
+switchtype=3	基于MySQL Galera cluster的切换机制。心跳语句为show status like 'wsrep%'
+
+**结论：**
+
+1.所有节点都正常，writeHost负责写操作，备writeHost负责读操作。
+
+2.当第一个writeHost失效时，其中一个备的writeHost负责写操作，其他备的writeHost负责读操作。
+
+3.当只有一个writeHost时，同时负责读写。
 
 
 
