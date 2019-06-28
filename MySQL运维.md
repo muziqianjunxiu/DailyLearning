@@ -2,8 +2,6 @@
 
 安装部署		**备份恢复		主备复制		HA架构		分布式数据库**		压力测试		性能优化		**自动化运维**
 
-
-
 # CentOS下安装
 
 ## 不同安装方式相关目录位置
@@ -226,73 +224,73 @@ root用户：
 
 `service mysqld restart`
 
-MySQL5.7.6 and later
+### MySQL5.7.6 and later
 
 root用户：
 
-`vim /etc/my.cnf`
+`[root@muzi ~]  vim /etc/my.cnf`
 
 ​		`[mysqld]`
 
 ​		`skip-grant-tables`
 
-`systemctl  restart mysqld`
+`[root@muzi ~] systemctl  restart mysqld`
 
-`mysql`
+`[root@muzi ~] mysql`   //无密码进入
 
-​		`select user,host,authentication_string from mysql.user;`
+​		`mysql> select user,host,authentication_string from mysql.user;`
 
-​		`update mysql.user set authentication_string=password('mimashi123!') where user='root';`
+​		`mysql> update mysql.user set authentication_string=password('mimashi123!') where user='root';`
 
-​		`flush privileges;`
+​		`mysql> flush privileges;`
 
-​		`\q`
+​		`mysql> \q`
 
-`vim  /etc.my.cnf`
+`[root@muzi ~] vim  /etc.my.cnf`
 
 ​		`[mysqld]`
 
 ​		`#skip-grant-tables`
 
-`service restart mysqld`
+`[root@muzi ~] service restart mysqld`
 
-`mysql	-uroot  -p"mimashi123!"`
+`[root@muzi ~] mysql	-uroot  -p"mimashi123!"`
 
 ### MySQL8
 
 root用户：
 
-`vim /etc/my.cnf`							编辑配置文件
+`[root@muzi ~]  vim /etc/my.cnf`							//编辑配置文件
 
-​		`[mysqld]`									在`[mysqld]`模块中添加
+​		`[mysqld]`									//在`[mysqld]`模块中添加这句
 
-​		`skip-grant-tables`					**跳过授权表启动**，即无密码启动
+​		`skip-grant-tables`					**//跳过授权表启动**，即无密码启动
 
-`systemctl  restart mysqld`				重启mysql服务
+`[root@muzi ~]  systemctl  restart mysqld`				//重启mysql服务
 
-`mysql`												此时可以无密码进入
+`[root@muzi ~]  mysql`												//此时可以无密码进入
 
-​		`use  mysql`								使用mysql表
+​		`mysql> use  mysql`								//使用mysql表
 
-​		`update user set authentication_string =' ' where user ='root';`		将密码置空
+​		`mysql> update user set authentication_string =' ' where user ='root';`		//将密码置空
 
-​		`\q`												退出mysql
+​		`mysql> \q`												//退出mysql
 
-`vim  /etc/my.cnf`							编辑配置文件
+`[root@muzi ~]  vim  /etc/my.cnf`							//编辑配置文件
 
-​		`[mysqld]`										在模块`[mysqld]`中
+​		`[mysqld]`										//在模块`[mysqld]`中
 
-​		`#skip-grant-tables`						将免登陆语句注释掉
+​		`#skip-grant-tables`						//将免登陆语句注释掉
 
-`service restart mysqld`						重启mysql服务
+`[root@muzi ~]  service restart mysqld`						//重启mysql服务
 
-`mysql  -uroot -p`				提示输入密码直接回车，因为已经将密码置空了
+`[root@muzi ~]  mysql  -uroot -p`				//提示输入密码直接回车，因为已经将密码置空了
 
-​		`ALTER USER 'root'@'localhost' IDENTIFIED BY 'mimashi123!';`		修改密码为`'mimashi123!`'
+​		`mysql> ALTER USER 'root'@'localhost' IDENTIFIED BY 'mimashi123!';`		//修改密码为`'mimashimuzi123`'
 
-​		`\q`
+​		`mysql> \q`		//退出mysql
 
-`mysql -uroot -p'mimashi123!'`			此时用新密码登陆		
+`[root@muzi ~]  mysql -uroot -p'mimashimuzi123'`			//此时用新密码登陆		
 
 ### 区别
 
@@ -332,7 +330,7 @@ root用户：
 
 1.在mysql库中的usr表中添加：
 
-`INSERT INTO user (host,user,password,select_priv,insert_priv) VALUE('localhost','muzi',PASSWORD('mimashi123'),'Y','Y');`
+`INSERT INTO user (host,user,password,select_priv,insert_priv) VALUES ('localhost','muzi',PASSWORD('mimashi123'),'Y','Y');`
 
 `FLUSH PRIVILEGES;`			重新载入授权表
 
@@ -357,6 +355,5 @@ root用户：
 
 2.在usr表中通过SQL的 GRANT  命令
 
-`GRANT SELECT,INSERT,UPDATE,DELETE,CREATE,DROP ON  db_muzi .*  TO 'muzi'@'localhost'  IDENTIFIED BY 'mimashi1!';`  给数据库`db_muzi`添加用户`muzi`，密码是‘`mimashi1！`’
+`GRANT SELECT,INSERT,UPDATE,DELETE,CREATE,DROP ON  db_muzi.*  TO 'muzi'@'localhost'  IDENTIFIED BY 'mimashi1!';`  给数据库`db_muzi`添加用户`muzi`，密码是‘`mimashi1！`’
 
-  

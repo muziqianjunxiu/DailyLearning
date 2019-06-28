@@ -1257,6 +1257,13 @@ mysql		此处mysql为指定登陆的数据库
 
 ### 4.修改用户密码
 
+#### 初始密码修改
+
+```bash
+[root@muzi ~] newpass= `grep 'temporary password' /var/log/mysqld.log |awk '{print $NF}'`   //查看mysql临时密码并赋值给newpass变量
+[root@muzi ~] mysqladmin -p"$newpass" password 'mimashigarela1'  //修改密码
+```
+
 #### root用户修改自己密码
 
 方法一：
@@ -2646,13 +2653,13 @@ garela2配置本地yum源并拷给garela3和garelaa4：
 [root@garela4 ~] systemctl enable mysqld
 
 修改临时密码：
-[root@garela1 ~] newpass= `grep 'temporary password' /var/log/mysql.log |awk '{print $NF}'`   //查看mysql临时密码并赋值给newpass变量
+[root@garela1 ~] newpass= `grep 'temporary password' /var/log/mysqld.log |awk '{print $NF}'`   //查看mysql临时密码并赋值给newpass变量
 [root@garela1 ~] mysqladmin -p"$newpass" password 'mimashigarela1'  //修改密码
-[root@garela2 ~] newpass= `grep 'temporary password' /var/log/mysql.log |awk '{print $NF}'`  
+[root@garela2 ~] newpass= `grep 'temporary password' /var/log/mysqld.log |awk '{print $NF}'`  
 [root@garela2 ~] mysqladmin -p"$newpass" password 'mimashigarela2'
-[root@garela3 ~] newpass= `grep 'temporary password' /var/log/mysql.log |awk '{print $NF}'`  
+[root@garela3 ~] newpass= `grep 'temporary password' /var/log/mysqld.log |awk '{print $NF}'`  
 [root@garela3 ~] mysqladmin -p"$newpass" password 'mimashigarela3'
-[root@garela4 ~] newpass= `grep 'temporary password' /var/log/mysql.log |awk '{print $NF}'` 
+[root@garela4 ~] newpass= `grep 'temporary password' /var/log/mysqld.log |awk '{print $NF}'` 
 [root@garela4 ~] mysqladmin -p"$newpass" password 'mimashigarela4'
 ```
 
