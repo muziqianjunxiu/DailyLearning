@@ -38,14 +38,6 @@ conda是Anaconda用于包管理和环境管理的工具，功能上类似pip和v
 
 `conda remove package_name`
 
-### **停用特定包**
-
-`jupyter serverextension disable  package_name`
-
-### **启用特定包**
-
-`jupyter serverextension enable package_name`
-
 ### **搜索特定包**
 
 `conda serach package_name`
@@ -123,6 +115,14 @@ conda是Anaconda用于包管理和环境管理的工具，功能上类似pip和v
 ### 后台开启
 
 `jupyter notebook --no-browser`
+
+### **停用包扩展功能**
+
+`jupyter serverextension disable  package_name`
+
+### **启用包扩展功能**
+
+`jupyter serverextension enable package_name`
 
 ### **关闭服务**
 
