@@ -48,6 +48,8 @@ deb-src http://mirrors.aliyun.com/ubuntu/ bionic-backports main restricted unive
 
 ​						`sudo 	apt-get		update`		更新源文件
 
+​						`sudo apt-get upgrade`    升级
+
 ​						此时就可以利用阿里源进行`sudo apt install***`安装各种软件了，例如：
 
 ​						`sudo 	apt 	install		vim`		安装vim
@@ -556,7 +558,7 @@ ip没问题，可以ping外网，可以ping  NAT模式下宿主机和其他虚�
 
 `sudo	apt-get	install	openssh-server`			安装ssh服务
 
-`vim	/etc/ssh/sshd_condig`		修改ssh服务的配置文件：
+`vim	/etc/ssh/sshd_config`		修改ssh服务的配置文件：
 
 ​			将	'`#Port   22`'											改为  '`Port	22`'
 

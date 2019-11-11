@@ -8,17 +8,27 @@ ip没问题，可以ping外网，可以pingNAT模式下宿主机和其他虚拟�
 
 ​			将	'`#Port   22`'											改为  '`Port	22`'
 
-​			将	'`#LoginGraceTime	2m`								改为		 '	`LoginGraceTime	2m`
+​			将	`#LoginGraceTime	2m`								
 
-​					`#PermitRootLogin Prohibit-password`						`#PermitRootLogin Prohibit-password`
+​					`#PermitRootLogin Prohibit-password`						
 
-​																											`PermitRootLogin	yes`
+​					`#StrictModes	yes`													
 
-​					`#StrictModes	yes`													`StrictModes	yes`
+​					`#MaxAuthTries	6`														
 
-​					`#MaxAuthTries	6`														`MaxAuthTries	6`
+​					`#MaxSessions	10`'												  	
 
-​					`#MaxSessions	10`'												  	`MaxSessions	10`'
+改为		 	`LoginGraceTime	2m`
+
+​					`#PermitRootLogin Prohibit-password`
+
+​					`PermitRootLogin	yes`
+
+​					`StrictModes	yes`
+
+​					MaxAuthTries	6`
+
+​					`MaxSessions	10`
 
 `sudo	service	sshd	restart`		重启ssh服务
 
