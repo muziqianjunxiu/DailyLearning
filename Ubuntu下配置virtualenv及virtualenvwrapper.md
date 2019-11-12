@@ -2,7 +2,7 @@
 
 ## python虚拟环境virtualenv安装及配置虚拟环境管理工具virtualenvwrapper
 
-`sudo apt-get pip3`  安装pip3，使用pip3安装virtualenv以及virtualenvwrapper，若通过apt安装，须使用python2安装，造成其安装目录及后续配置出现问题，不如使用pip3安装。
+`sudo apt-get install pip3`  或者`sudo apt-get install python3-pip`  安装pip3，使用pip3安装virtualenv以及virtualenvwrapper，若通过apt安装，须使用python2安装，造成其安装目录及后续配置出现问题，不如使用pip3安装。
 
 `pip3 install virtualenv virtualenvwrapper` 安装虚拟环境以及虚拟环境管理工具
 
@@ -10,7 +10,7 @@
 
 1.创建目录用来存放虚拟环境：  `mkdir $HOME/.virtualenvs`   
 
-2.在~./bashrc中添加行：`export WORKON_HOME/.virtualenvs`
+2.在~./bashrc中添加行：`export WORKON_HOME=$HOME/.virtualenvs`
 
 ​										`export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3`
 
@@ -22,7 +22,7 @@
 
 ## ubuntu18.04创建虚拟环境时提示bash: /usr/local/bin/virtualenvwrapper.sh: 没有那个文件或目录 的解决办法
 
-Ubuntu安装了2.7和3.x两个版本的python,在安装时使用的是sudo pip3 install virtualenvwrapper
+Ubuntu安装了2.7和3.x两个版本的python,在安装时使用的是`sudo pip3 install virtualenvwrapper`
 在我运行的时候默认使用的是python2.x,但在python2.x中不存在对应的模块。
 (virtualenvwrapper.sh文件内容如下:)：
 
@@ -34,12 +34,12 @@ fi
 
 解决方法：
 
-修改virtualenvwrapper.sh文件
+修改`virtualenvwrapper.sh`文件
 
-which virtualenvwrapper.sh    找到文件路径
-在文件路径下  /usr/local/bin/virtualenvwrapper.sh  
+`which virtualenvwrapper.sh`    找到文件路径
+在文件路径下  `/usr/local/bin/virtualenvwrapper.sh`  
 
-​						sudo vim virtualenvwrapper.sh
+​						`sudo vim virtualenvwrapper.sh`
 
 修改：
 
