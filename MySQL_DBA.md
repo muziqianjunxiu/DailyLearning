@@ -44,6 +44,8 @@
 
 `create database mydb；`		创建数据库mydb
 
+`create database mydb charset=utf8;`  使用utf8编码创建库，以支持中文
+
 `show databases；`						查看所有库
 
 `use  mydb`								使用mydb数据库

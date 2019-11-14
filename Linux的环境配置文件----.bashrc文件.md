@@ -46,9 +46,7 @@
 
 ​    为了将目录永久添加到 `$PATH` ，只要将"`export`"的那行添加到`.bashrc`或`/etc/bashrc`文件中。
 
-　　使用命令:
 
-　　`sudo gedit ~/.bashrc`
 
 **别名**
 
