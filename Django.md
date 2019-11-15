@@ -1,34 +1,200 @@
-mkdir GP1
+`mkdir GP1`
 
-cd GP1
+`cd GP1`
 
-mkdir Day01
+`mkdir Day01`
 
-cd Day01
+`cd Day01`
 
-mkvirtualenv py3 -p /usr/bin/python3     创建虚拟环境，解释器使用python3
+`mkvirtualenv py3 -p /usr/bin/python3`     创建虚拟环境，解释器使用`python3`
 
-workon py3    切换到py3虚拟环境中
+`workon py3`    切换到py3虚拟环境中
 
-pip freeze  查看环境中已安装包
+`pip freeze`  查看环境中已安装包
 
-pip install django==1.11.7  安装某一特定版本，需两个等号
+`pip install django==1.11.7`  安装某一特定版本，需两个等号
 
-django-admin startproject  HelloWorld   创建一个项目
+--------------
 
-tree 
+# python manage.py XXX
 
-cd HelloWorld 
+`django-admin startproject  HelloWorld`   创建一个项目
 
-python manage.py startapp App   创建一个应用
+`python manage.py startapp App`   创建一个应用
 
-tree
+`python manage.py runserver`   启动django服务
 
-python manage.py runserver   启动django
+`python manage.py makemigrations`   制造ORM迁移文件
 
-python manage.py makemigrate
+`python manage.py migrate`  应用迁移文件
 
---------------------------
+`python manage.py createsuperuser`	创建admin管理员
+
+`python manage.py changepassword username`   修改admin页面中username的登陆密码
+
+`python manage.py flush`	清空数据库内容，只留下空表。注意该操作会将admin页面登陆用户也清除掉。
+
+`python manage.py shell`   进入带当前python环境的shell环境，调试用
+
+`python manage.py dbshell`	进入在setting.py中设置的数据库。shell环境。
+
+`python manage.py dumpdata appname > appname.json`	导出数据
+
+`python manage.py loaddata appname.json`	导入数据
+
+-------
+
+# models.py
+
+```python 
+from django.db import models
+class Person(models.Model):
+	name = models.CharField(max_length=20)
+	age = models.IntegerField()
+```
+
+-----
+
+# views.py
+
+```python
+from django.http import HttpResponse
+
+def index(request):
+    return HttpResponse("Welcome!")
+```
+
+
+
+## 新建对象的方法：
+
+  1.  `Person.objects.create(name = anyname,age = anyage)`
+
+  2.  `Person.objects.get_or_create(name = "anyname", age = 23 )`
+
+		3.  `p = Person(name = 'anyname')`
+
+      `p.age = 23`
+
+      `p.save()`
+
+		4.  `p =Person(name = 'anyname',age = 23)`
+
+     `p.save()`
+
+## 获取对象的方法：
+
+	1.  `Person.objects.all ()`
+ 	2. `Peron.objects.all()[:10]`   切片操作，获取10个人，**不支持负索引**，切片可节约内存
+ 	3.  `Person.objects.get(name=anyname)`
+ 	4. `Person.objects.filter(name='anyname')`
+ 	5. `Person.objects.filter(name__iexact="abc")`  名称为abc且不区分大小写
+ 	6.  `Person.objects.filter(name__contains="abc")` 名称包含abc的对象
+ 	7.  `Person.objects.filter(name__icontains="abc")` 名称包含abc，且abc不区分大小写的对象
+ 	8.  `Person.objects.filter(name__regex="^abc")`  正则表达式查询
+ 	9.  `Person.objects.filter(name__iregex="^abc")`  正则表达式不区分大小写
+ 	10.  `Person.objects.exclude(name__contains="abc")`  排除name中包含abc的对象
+ 	11.  `Person.objects.filter(name__contains="abc").exclude(age=23)`  找出name含abc的但排除年龄是23的对象
+
+## 删除对象的方法：
+
+ 1.  `Person.objects.filter(name__contains="abc").delete()`
+
+ 2.  `p=Person.objects.filter(name__contains="abc")`
+
+     `p.delete()`
+
+## 更新对象的方法：
+
+1.  `Person.objects.filter(name__contains="abc").update(name='cba')`
+
+2.  `p = Person.objects.filter(name__contains="abc")`
+
+    `p.name = "cba"`
+
+    `p.save()`
+
+## 查询对象数量：
+
+​	`Person.objects.count()`
+
+## 链式筛选对象：
+
+​	`Person.objects.filter(name__contains="abc").filter(age=23)`
+
+​	`Person.objects.filter(name__contains="abc").exclude(age=23)`检查对象是否存在：
+
+​	`Person.objects.all().exists()`
+
+## 获取对象后排序显示：
+
+​	`Person.objects.all().order_by('name')`	按name进行正排序
+
+​	`Person.objects.all().order_by('-name')`  按name进行负排序
+
+## 切片不支持负索引解决方法：
+
+​	`Person.objects.all().[:10]`	切片操作，前10条
+
+​	`Person.objects.all().[-10:]`	不支持负索引，会报错
+
+1.使用reverse（）解决
+
+​		`Person.objects.all().reverse()[:2]`		最后两条
+
+​		`Person.objects.all().reverse()[0]`		 最后一条
+
+2.使用order_by,在栏目名（column name）前加一个负号
+
+​		`Person.objects.order_by('-age')[:20]`		age最大的20条
+
+## 查询结果合并后重复的解决方法：
+
+一般的情况下，QuerySet 中不会出来重复的，重复是很罕见的，但是当跨越多张表进行检索后，结果并到一起，可能会出来重复的值
+
+```python
+qs1 = Pathway.objects.filter(label__name='x')
+qs2 = Pathway.objects.filter(reaction__name='A + B >> C')
+qs3 = Pathway.objects.filter(inputer__name='WeizhongTu')
+# 合并到一起
+qs = qs1 | qs2 | qs3
+这个时候就有可能出现重复的
+# 去重方法
+qs = qs.distinct()
+```
+
+----------------
+
+# urls.py
+
+urls.py
+
+```python
+from django.contrib import admin
+from django.conf.urls import url,include
+
+urlpatterns=[
+    url(r'^admin/',admin.site.urls),
+    url(r'^App/',include('App.urls')),
+]
+```
+
+App/urls.py
+
+```python
+from django.conf.urls import url
+from App import views
+
+urlpatterns=[
+    url(r'^home/',views.home),
+]
+```
+
+
+
+-----------------
+
+
 
 # pycharm连接mysql数据库
 
