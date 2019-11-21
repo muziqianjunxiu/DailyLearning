@@ -53,6 +53,78 @@ class Person(models.Model):
 	age = models.IntegerField()
 ```
 
+逻辑删除：对于重要数据，不做物理删除，做逻辑删除，实现方法是定义isDelete属性，类型为BooleanField，默认值为False
+
+## 字段类型：
+
+### AutoField
+
+​		一个根据实际ID自动增长的IntegerField，通常不指定，如果不指定，一个主键字段将自动添加到模型中
+
+### CharField（max_length=字符长度）
+
+​		字符串，默认的表单样式是TextInput
+
+### TextField
+
+​		大文本字段，一般超过4000使用，默认表单控件是Textarea
+
+### IntegerField
+
+​		整数
+
+### DecimalField(max_digits=None,decimal_palces=None)
+
+​		使用python的Decimal实例表示的十进制浮点数，高精度的计算用
+
+​		参数说明：DecimalField.max_digits  位数总数			
+
+​						  DecimalField.decimal_places    小数点后的数字位数
+
+### FloatField
+
+​		用python的float实例来表示的浮点数
+
+### BooleanField
+
+​		true/false字段，此字段的默认表单控制是CheckboxInput
+
+### NullBooleanField
+
+​		支持null、true、false三中值
+
+### DateField([auto_now=False,auto_now_add=False])
+
+​		使用python的datetime.date实例表示的日期
+
+​		参数说明：
+
+​				DateField.auto_now：每次保存对象时，自动设置该字段为当前时间，用于“最后一次修改”的时间戳，它总是使用当前日期，默认为false
+
+​				DateField.auto_now_add：当对象第一次被创建时自动设置为当前时间，用于创建的时间戳，总是使用当前日期，默认为false
+
+### TimeField
+
+​		使用python的datetime.time实例表示的时间，参数同DateField
+
+### DateTimeField
+
+​		使用python的datetime.time实例表示的日期和时间，参数同DateField
+
+### FileField
+
+​		一个上传文件的字段
+
+### ImageField
+
+​		继承了FileField的所有属性和方法，但对上传的对象进行校验，确保是个有效的image
+
+
+
+
+
+
+
 -----
 
 # views.py
@@ -196,7 +268,7 @@ urlpatterns=[
 
 
 
-# pycharm连接mysql数据库
+# settings.py设置数据库为MySQL
 
 ### 1.apt源安装MySQL   Server
 
@@ -212,7 +284,7 @@ urlpatterns=[
 
 ​		`sudo systemctl enable mysql`				启动MySQL服务
 
-### 3.创建及配置用户
+### 3.创建及配置MySQL用户
 
 ​		`sudo	mysql	-uroot	-p`			root用户进入，输入刚刚创建的root密码
 
@@ -252,3 +324,17 @@ pymysql.install_as_MySQLdb()
 ​				伪装成MySQLclient，再执行迁移：
 
 ​				`python manage.py migrate`
+
+### 5.配置数据库连接信息
+
+在setting.py中配置数据库连接信息
+
+```python
+'ENGINE':'django.db.backends.mysql',
+'NAME':'GP1HelloDjango',
+'USER':'muzi',
+'PASSWORD':'mimaSHI123!',
+'HOST':'localhost',
+'PORT':'3306',
+```
+
